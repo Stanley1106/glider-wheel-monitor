@@ -79,7 +79,7 @@ body {
   padding: 14px 12px;
   text-align: center;
 }
-.stat-value { color: var(--accent); font-size: 24px; font-weight: 700; line-height: 1.1; }
+.stat-value { color: var(--accent); font-size: clamp(16px, 4vw, 24px); font-weight: 700; line-height: 1.1; }
 .stat-value.secondary { color: var(--text); font-size: 20px; }
 .stat-sub { color: var(--text); font-size: 14px; margin-top: 2px; }
 .stat-label { color: var(--muted); font-size: 10px; margin-top: 6px; letter-spacing: 0.08em; text-transform: uppercase; }
@@ -97,6 +97,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 14px;
+  overflow: hidden;
 }
 .chart-title { color: var(--text); font-size: 12px; margin-bottom: 4px; }
 
