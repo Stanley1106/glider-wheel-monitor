@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <time.h>
 #include <Wire.h>
 #include <DHT.h>
 #include <BH1750.h>
@@ -48,6 +49,14 @@ void updateDisplay() {
   display.display();
 }
 
+String getTimestamp() {
+  struct tm t;
+  if (!getLocalTime(&t)) return "1970/01/01 00:00:00";
+  char buf[24];
+  strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &t);
+  return String(buf);
+}
+
 void connectWiFi() {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("Connecting WiFi");
@@ -56,6 +65,12 @@ void connectWiFi() {
     Serial.print(".");
   }
   Serial.printf("\nWiFi connected: %s\n", WiFi.localIP().toString().c_str());
+  // UTC+8 台灣時間，無夏令時
+  configTime(8 * 3600, 0, "pool.ntp.org", "time.google.com");
+  Serial.print("NTP sync");
+  struct tm t;
+  while (!getLocalTime(&t)) { delay(500); Serial.print("."); }
+  Serial.printf("\nTime: %s\n", getTimestamp().c_str());
 }
 
 // 背景上傳 task
@@ -89,8 +104,10 @@ void uploadTask(void* param) {
     // 上傳（只送原始資料，Sheets 負責計算其餘欄位）
     if (WiFi.status() != WL_CONNECTED) connectWiFi();
     HTTPClient http;
+    String ts = getTimestamp();
     String url = String(SCRIPT_URL)
-      + "?laps_delta="  + delta
+      + "?ts="          + ts
+      + "&laps_delta="  + delta
       + "&temperature=" + temp
       + "&humidity="    + hum
       + "&lux="         + lux;
