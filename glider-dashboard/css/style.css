@@ -1,0 +1,142 @@
+:root {
+  --bg: #0a0f0a;
+  --surface: #0d120d;
+  --border: #1a2a1a;
+  --accent: #39d353;
+  --text: #e5e7eb;
+  --muted: #6b7280;
+  --color-lux: #fbbf24;
+  --color-temp: #f87171;
+  --color-humidity: #60a5fa;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ── Layout ─────────────────────────────── */
+.page { max-width: 1200px; margin: 0 auto; padding: 20px 16px; }
+
+/* ── Header ─────────────────────────────── */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.header-left { display: flex; align-items: baseline; gap: 12px; }
+.header-title { color: var(--text); font-size: 16px; font-weight: 600; letter-spacing: 0.05em; }
+.header-updated { color: var(--muted); font-size: 11px; }
+.header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ── Status pill ─────────────────────────── */
+.status-pill {
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+}
+.status-pill.running { border-color: #1a3a1a; background: #0d1f0d; color: var(--accent); }
+
+/* ── Time range buttons ──────────────────── */
+.range-buttons { display: flex; gap: 4px; }
+.range-btn {
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 3px 10px;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.range-btn.active { background: var(--border); color: var(--accent); }
+.range-btn:hover:not(.active) { border-color: var(--accent); color: var(--text); }
+
+/* ── Stat cards ──────────────────────────── */
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 12px;
+  text-align: center;
+}
+.stat-value { color: var(--accent); font-size: 24px; font-weight: 700; line-height: 1.1; }
+.stat-value.secondary { color: var(--text); font-size: 20px; }
+.stat-sub { color: var(--text); font-size: 14px; margin-top: 2px; }
+.stat-label { color: var(--muted); font-size: 10px; margin-top: 6px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* ── Chart containers ────────────────────── */
+.chart-full { margin-bottom: 12px; }
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.chart-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px;
+}
+.chart-title { color: var(--text); font-size: 12px; margin-bottom: 4px; }
+
+/* ── Error banner ────────────────────────── */
+.error-banner {
+  display: none;
+  background: #1a0a0a;
+  border: 1px solid #3a1a1a;
+  color: #f87171;
+  padding: 8px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+.error-banner.visible { display: block; }
+
+/* ── Footer ──────────────────────────────── */
+.footer {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--muted);
+  font-size: 11px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.footer a { color: var(--accent); text-decoration: none; }
+.footer a:hover { text-decoration: underline; }
+
+/* ── Responsive ──────────────────────────── */
+@media (max-width: 900px) {
+  .stat-cards { grid-template-columns: repeat(2, 1fr); }
+  .stat-cards .stat-card:last-child { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+  .stat-cards { grid-template-columns: 1fr; }
+  .stat-cards .stat-card:last-child { grid-column: auto; }
+  .chart-grid { grid-template-columns: 1fr; }
+  .header { flex-direction: column; align-items: flex-start; }
+}
