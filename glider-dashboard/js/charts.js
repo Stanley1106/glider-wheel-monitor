@@ -17,9 +17,9 @@
         foreColor: CHART_THEME.foreColor,
         toolbar: { autoSelected: 'zoom', show: true },
         zoom: { enabled: true },
-        animations: { enabled: false },
+        animations: { enabled: true, easing: 'easeinout', speed: 350 },
       },
-      series: [{ name: 'RPM', data: [] }],
+      series: [{ name: 'Speed', data: [] }],
       xaxis: { type: 'datetime', labels: { datetimeUTC: false } },
       yaxis: { min: 0, labels: { formatter: v => v.toFixed(1) } },
       stroke: { curve: 'smooth', width: 2 },
@@ -34,7 +34,18 @@
       },
       colors: ['#39d353'],
       grid: GRID,
-      tooltip: { ...TOOLTIP, x: { format: 'HH:mm:ss' } },
+      tooltip: {
+        custom: ({ series, seriesIndex, dataPointIndex, w }) => {
+          const ts = w.globals.seriesX[0][dataPointIndex];
+          const speed = series[0][dataPointIndex];
+          const rpm = (w.config.series[0].data[dataPointIndex] || {}).rpm || 0;
+          const time = new Date(ts).toLocaleTimeString('zh-TW', { hour12: false, timeZone: 'Asia/Taipei' });
+          return '<div style="padding:8px 12px;background:#0d120d;border:1px solid #1a2a1a;border-radius:4px;font-family:monospace;font-size:12px">' +
+            '<div style="color:#39d353">' + speed.toFixed(1) + ' km/h</div>' +
+            '<div style="color:#6b7280">' + rpm.toFixed(1) + ' RPM · ' + time + '</div>' +
+            '</div>';
+        },
+      },
       noData: { text: 'No data yet', style: { color: '#6b7280' } },
     });
     charts.rpm.render();
@@ -46,7 +57,7 @@
         background: CHART_THEME.background,
         foreColor: CHART_THEME.foreColor,
         toolbar: { show: false },
-        animations: { enabled: false },
+        animations: { enabled: true, easing: 'easeinout', speed: 350 },
       },
       series: [{ name: 'Laps', data: new Array(24).fill(0) }],
       xaxis: {
@@ -69,7 +80,7 @@
         background: CHART_THEME.background,
         foreColor: CHART_THEME.foreColor,
         toolbar: { show: false },
-        animations: { enabled: false },
+        animations: { enabled: true, easing: 'easeinout', speed: 350 },
       },
       series: [
         { name: 'RPM', data: [] },
@@ -101,7 +112,7 @@
         background: CHART_THEME.background,
         foreColor: CHART_THEME.foreColor,
         toolbar: { show: false },
-        animations: { enabled: false },
+        animations: { enabled: true, easing: 'easeinout', speed: 350 },
       },
       series: [
         { name: 'Temp (°C)', data: [] },
@@ -130,7 +141,7 @@
             y2: CONFIG.COMFORT_TEMP_MAX,
             fillColor: '#39d353',
             opacity: 0.06,
-            label: { text: 'comfort zone', style: { color: '#39d353', background: 'transparent' } },
+            label: { text: 'comfort zone', style: { color: '#39d353', background: 'rgba(10,15,10,0.85)' } },
           },
         ],
       },
@@ -150,7 +161,7 @@
         background: CHART_THEME.background,
         foreColor: CHART_THEME.foreColor,
         toolbar: { show: false },
-        animations: { enabled: false },
+        animations: { enabled: true, easing: 'easeinout', speed: 350 },
       },
       series: [{ name: 'Laps', data: [] }],
       xaxis: { type: 'category' },
@@ -185,20 +196,20 @@
     const filtered = rows.filter(r => r.ts.getTime() >= cutoff);
 
     charts.rpm.updateSeries([{
-      name: 'RPM',
-      data: filtered.map(r => ({ x: r.ts.getTime(), y: parseFloat(r.rpm.toFixed(2)) })),
+      name: 'Speed',
+      data: filtered.map(r => ({ x: r.ts.getTime(), y: parseFloat((r.speedKmhSmooth ?? 0).toFixed(2)), rpm: +(r.rpmSmooth ?? r.rpm ?? 0).toFixed(1) })),
     }]);
 
     charts.hourly.updateSeries([{ name: 'Laps', data: hourly }]);
 
     charts.luxRpm.updateSeries([
       { name: 'RPM', data: filtered.map(r => ({ x: r.ts.getTime(), y: parseFloat(r.rpm.toFixed(2)) })) },
-      { name: 'Lux', data: filtered.map(r => ({ x: r.ts.getTime(), y: r.lux })) },
+      { name: 'Lux', data: filtered.filter(r => r.lux !== null).map(r => ({ x: r.ts.getTime(), y: r.lux })) },
     ]);
 
     charts.env.updateSeries([
-      { name: 'Temp (°C)', data: filtered.map(r => ({ x: r.ts.getTime(), y: r.temperature })) },
-      { name: 'Humidity (%)', data: filtered.map(r => ({ x: r.ts.getTime(), y: r.humidity })) },
+      { name: 'Temp (°C)', data: filtered.filter(r => r.temperature !== null).map(r => ({ x: r.ts.getTime(), y: r.temperature })) },
+      { name: 'Humidity (%)', data: filtered.filter(r => r.humidity !== null).map(r => ({ x: r.ts.getTime(), y: r.humidity })) },
     ]);
 
     charts.daily.updateSeries([{
