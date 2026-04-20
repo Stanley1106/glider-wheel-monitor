@@ -8,10 +8,16 @@
       if (cols.length < 5) continue;
       const ts = new Date(cols[0].trim());
       const total_laps = parseInt(cols[1].trim(), 10);
-      const temperature = parseFloat(cols[2].trim());
-      const humidity = parseFloat(cols[3].trim());
-      const lux = parseFloat(cols[4].trim());
       if (isNaN(ts.getTime()) || isNaN(total_laps)) continue;
+
+      const rawTemp = parseFloat(cols[2].trim());
+      const rawHumidity = parseFloat(cols[3].trim());
+      const rawLux = parseFloat(cols[4].trim());
+
+      const temperature = !isNaN(rawTemp) && rawTemp >= 0 && rawTemp <= 50 ? rawTemp : null;
+      const humidity = !isNaN(rawHumidity) && rawHumidity > 0 && rawHumidity <= 100 ? rawHumidity : null;
+      const lux = !isNaN(rawLux) && rawLux >= 0 && rawLux <= 65535 ? rawLux : null;
+
       rows.push({ ts, total_laps, temperature, humidity, lux });
     }
     return rows;
@@ -31,20 +37,40 @@
 
   function computeRpm(rows) {
     for (let i = 0; i < rows.length; i++) {
-      if (i === 0) { rows[i].rpm = 0; rows[i].lapsDelta = 0; continue; }
+      if (i === 0) {
+        rows[i].rpm = 0;
+        rows[i].lapsDelta = 0;
+        rows[i].speedKmh = 0;
+        continue;
+      }
       const prev = rows[i - 1];
       const curr = rows[i];
       const elapsedMin = (curr.ts - prev.ts) / 60000;
       const delta = Math.max(0, curr.total_laps - prev.total_laps);
       curr.lapsDelta = delta;
       curr.rpm = elapsedMin > 0 ? delta / elapsedMin : 0;
+      const distanceKm = delta * CONFIG.WHEEL_CIRCUMFERENCE_M / 1000;
+      const elapsedHr = elapsedMin / 60;
+      curr.speedKmh = elapsedHr > 0 ? distanceKm / elapsedHr : 0;
+    }
+  }
+
+  function smoothSeries(rows, windowSize) {
+    const w = Math.max(1, windowSize);
+    for (let i = 0; i < rows.length; i++) {
+      const start = Math.max(0, i - w + 1);
+      const slice = rows.slice(start, i + 1);
+      rows[i].rpmSmooth = slice.reduce((s, r) => s + r.rpm, 0) / slice.length;
+      rows[i].speedKmhSmooth = slice.reduce((s, r) => s + r.speedKmh, 0) / slice.length;
     }
   }
 
   function buildHourly(rows) {
+    const today = todayDateStr();
+    const todayRows = rows.filter(r => rowDateStr(r.ts) === today);
     const buckets = new Array(24).fill(0);
-    for (const r of rows) {
-      const hour = r.ts.getHours();
+    for (const r of todayRows) {
+      const hour = new Date(r.ts.getTime() + 8 * 3600 * 1000).getUTCHours();
       buckets[hour] += r.lapsDelta;
     }
     return buckets;
@@ -62,6 +88,15 @@
       .map(([date, { start, end }]) => ({ date, laps: Math.max(0, end - start) }));
   }
 
+  function classifyActivity(speedKmh) {
+    const t = CONFIG.SPEED_THRESHOLDS;
+    if (speedKmh === 0)         return { level: 'sleeping',  labelZh: '睡覺中', icon: '○' };
+    if (speedKmh < t.idle)      return { level: 'idle',       labelZh: '慢步',   icon: '◐' };
+    if (speedKmh < t.active)    return { level: 'active',     labelZh: '活動中', icon: '◑' };
+    if (speedKmh < t.running)   return { level: 'running',    labelZh: '奔跑',   icon: '●' };
+    return                             { level: 'sprinting',  labelZh: '衝刺',   icon: '◉' };
+  }
+
   function computeStats(rows) {
     const today = todayDateStr();
     const todayRows = rows.filter(r => rowDateStr(r.ts) === today);
@@ -75,15 +110,18 @@
 
     const last = rows[rows.length - 1] || {};
     const currentRPM = last.rpm ?? 0;
+    const currentSpeedKmh = last.speedKmhSmooth ?? last.speedKmh ?? 0;
+    const activity = classifyActivity(currentSpeedKmh);
 
     return {
       todayLaps,
       todayDistanceM,
       currentRPM,
+      currentSpeedKmh,
+      activity,
       latestTemp: last.temperature ?? null,
       latestHumidity: last.humidity ?? null,
       latestLux: last.lux ?? null,
-      isRunning: currentRPM > 0,
     };
   }
 
@@ -97,6 +135,7 @@
     const text = await res.text();
     const rows = parseCsv(text);
     computeRpm(rows);
+    smoothSeries(rows, CONFIG.SMOOTHING_WINDOW);
     const stats = computeStats(rows);
     const hourly = buildHourly(rows);
     const daily = buildDaily(rows);
@@ -104,4 +143,5 @@
   }
 
   window.fetchData = fetchData;
+  window.classifyActivity = classifyActivity;
 })();
