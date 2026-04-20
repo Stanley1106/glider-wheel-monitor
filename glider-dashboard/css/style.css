@@ -49,6 +49,10 @@ body {
   color: var(--muted);
 }
 .status-pill.running { border-color: #1a3a1a; background: #0d1f0d; color: var(--accent); }
+.status-pill.idle { border-color: #1a2a3a; background: #0d1220; color: #60a5fa; }
+.status-pill.active { border-color: #1a3a1a; background: #0d1f0d; color: var(--accent); }
+.status-pill.sprinting { border-color: #2a3a1a; background: #1a2a0d; color: #86efac; }
+body.is-active .stat-card:nth-child(3) { border-color: var(--accent); box-shadow: 0 0 16px rgba(57, 211, 83, 0.15); }
 
 /* ── Time range buttons ──────────────────── */
 .range-buttons { display: flex; gap: 4px; }
@@ -78,6 +82,7 @@ body {
   border-radius: 6px;
   padding: 14px 12px;
   text-align: center;
+  transition: border-color 0.3s, box-shadow 0.3s;
 }
 .stat-value { color: var(--accent); font-size: clamp(16px, 4vw, 24px); font-weight: 700; line-height: 1.1; }
 .stat-value.secondary { color: var(--text); font-size: 20px; }
