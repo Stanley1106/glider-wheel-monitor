@@ -90,11 +90,11 @@
 
   function classifyActivity(speedKmh) {
     const t = CONFIG.SPEED_THRESHOLDS;
-    if (speedKmh === 0)         return { level: 'sleeping',  labelZh: '睡覺中', icon: '○' };
-    if (speedKmh < t.idle)      return { level: 'idle',       labelZh: '慢步',   icon: '◐' };
-    if (speedKmh < t.active)    return { level: 'active',     labelZh: '活動中', icon: '◑' };
-    if (speedKmh < t.running)   return { level: 'running',    labelZh: '奔跑',   icon: '●' };
-    return                             { level: 'sprinting',  labelZh: '衝刺',   icon: '◉' };
+    if (speedKmh === 0)         return { level: 'sleeping',  label: 'sleeping',  icon: '○' };
+    if (speedKmh < t.idle)      return { level: 'idle',       label: 'walking',   icon: '◐' };
+    if (speedKmh < t.active)    return { level: 'active',     label: 'active',    icon: '◑' };
+    if (speedKmh < t.running)   return { level: 'running',    label: 'running',   icon: '●' };
+    return                             { level: 'sprinting',  label: 'sprinting', icon: '◉' };
   }
 
   function computeStats(rows) {

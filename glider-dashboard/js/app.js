@@ -27,7 +27,7 @@
     elTemp.textContent     = stats.latestTemp !== null ? stats.latestTemp.toFixed(1) + '°C' : '—';
     elHumidity.textContent = stats.latestHumidity !== null ? stats.latestHumidity.toFixed(0) + '%' : '—';
     elLux.textContent      = stats.latestLux !== null ? stats.latestLux.toFixed(0) + ' lux' : '—';
-    elStatus.textContent = stats.activity.icon + ' ' + stats.activity.labelZh;
+    elStatus.textContent = stats.activity.icon + ' ' + stats.activity.label;
     elStatus.className = 'status-pill ' + stats.activity.level;
     document.body.classList.toggle('is-active', stats.currentSpeedKmh >= CONFIG.SPEED_THRESHOLDS.idle);
   }
