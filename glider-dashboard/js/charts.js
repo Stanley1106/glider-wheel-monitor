@@ -9,6 +9,13 @@
 
   const charts = {};
 
+  function formatDailyLabel(value) {
+    if (typeof value !== 'string') return value ?? '';
+    const [year, month, day] = value.split('-').map(Number);
+    if (!year || !month || !day) return value;
+    return `${month}/${day}`;
+  }
+
   function hasSeriesData(series) {
     return series.some(item => Array.isArray(item.data) && item.data.length > 0);
   }
@@ -163,12 +170,20 @@
         animations: { enabled: true, easing: 'easeinout', speed: 350 },
       },
       series: [{ name: 'Laps', data: [] }],
-      xaxis: { type: 'category' },
+      xaxis: {
+        type: 'category',
+        categories: [],
+        labels: {
+          formatter: value => formatDailyLabel(value),
+          rotate: -45,
+          hideOverlappingLabels: false,
+        },
+      },
       yaxis: { min: 0 },
       colors: ['#39d353'],
       plotOptions: { bar: { columnWidth: '60%', borderRadius: 2 } },
       grid: GRID,
-      tooltip: TOOLTIP,
+      tooltip: { ...TOOLTIP, x: { formatter: value => value } },
       noData: NO_DATA,
     });
     charts.daily.render();
@@ -216,9 +231,12 @@
       { name: 'Humidity (%)', data: filtered.filter(r => r.humidity !== null).map(r => ({ x: r.ts.getTime(), y: r.humidity })) },
     ]);
 
+    charts.daily.updateOptions({
+      xaxis: { categories: daily.map(d => d.date) },
+    }, false, false, false);
     updateSeriesWithNoDataState(charts.daily, [{
       name: 'Laps',
-      data: daily.map(d => ({ x: d.date, y: d.laps })),
+      data: daily.map(d => d.laps),
     }]);
   };
 
