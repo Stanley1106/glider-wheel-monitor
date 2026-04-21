@@ -1,24 +1,48 @@
 (function () {
+  function buildColumnIndex(headers) {
+    const normalized = headers.map(header => header.trim().toLowerCase());
+    const findColumn = (...names) => normalized.findIndex(header => names.includes(header));
+
+    return {
+      ts: findColumn('timestamp', 'ts'),
+      laps: findColumn('laps_delta', 'lap_delta', 'total_laps', 'laps_total'),
+      temperature: findColumn('temperature', 'temp'),
+      humidity: findColumn('humidity'),
+      lux: findColumn('lux'),
+    };
+  }
+
   function parseCsv(text) {
-    const lines = text.trim().split('\n');
+    const lines = text.trim().split(/\r?\n/);
     if (lines.length < 2) return [];
+
+    const headers = lines[0].split(',');
+    const inferredIndex = buildColumnIndex(headers);
+    const index = {
+      ts: inferredIndex.ts !== -1 ? inferredIndex.ts : 0,
+      laps: inferredIndex.laps !== -1 ? inferredIndex.laps : 1,
+      temperature: inferredIndex.temperature !== -1 ? inferredIndex.temperature : 2,
+      humidity: inferredIndex.humidity !== -1 ? inferredIndex.humidity : 3,
+      lux: inferredIndex.lux !== -1 ? inferredIndex.lux : 4,
+    };
+
     const rows = [];
     for (let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(',');
       if (cols.length < 5) continue;
-      const ts = new Date(cols[0].trim());
-      const total_laps = parseInt(cols[1].trim(), 10);
-      if (isNaN(ts.getTime()) || isNaN(total_laps)) continue;
+      const ts = new Date((cols[index.ts] ?? '').trim());
+      const lapsDelta = parseInt((cols[index.laps] ?? '').trim(), 10);
+      if (isNaN(ts.getTime()) || isNaN(lapsDelta)) continue;
 
-      const rawTemp = parseFloat(cols[2].trim());
-      const rawHumidity = parseFloat(cols[3].trim());
-      const rawLux = parseFloat(cols[4].trim());
+      const rawTemp = parseFloat((cols[index.temperature] ?? '').trim());
+      const rawHumidity = parseFloat((cols[index.humidity] ?? '').trim());
+      const rawLux = parseFloat((cols[index.lux] ?? '').trim());
 
       const temperature = !isNaN(rawTemp) && rawTemp >= 0 && rawTemp <= 50 ? rawTemp : null;
       const humidity = !isNaN(rawHumidity) && rawHumidity > 0 && rawHumidity <= 100 ? rawHumidity : null;
       const lux = !isNaN(rawLux) && rawLux >= 0 && rawLux <= 65535 ? rawLux : null;
 
-      rows.push({ ts, total_laps, temperature, humidity, lux });
+      rows.push({ ts, lapsDelta: Math.max(0, lapsDelta), temperature, humidity, lux });
     }
     return rows;
   }
@@ -35,21 +59,18 @@
       .slice(0, 10);
   }
 
-  function computeRpm(rows) {
+  function computeRates(rows) {
     for (let i = 0; i < rows.length; i++) {
       if (i === 0) {
         rows[i].rpm = 0;
-        rows[i].lapsDelta = 0;
         rows[i].speedKmh = 0;
         continue;
       }
       const prev = rows[i - 1];
       const curr = rows[i];
       const elapsedMin = (curr.ts - prev.ts) / 60000;
-      const delta = Math.max(0, curr.total_laps - prev.total_laps);
-      curr.lapsDelta = delta;
-      curr.rpm = elapsedMin > 0 ? delta / elapsedMin : 0;
-      const distanceKm = delta * CONFIG.WHEEL_CIRCUMFERENCE_M / 1000;
+      curr.rpm = elapsedMin > 0 ? curr.lapsDelta / elapsedMin : 0;
+      const distanceKm = curr.lapsDelta * CONFIG.WHEEL_CIRCUMFERENCE_M / 1000;
       const elapsedHr = elapsedMin / 60;
       curr.speedKmh = elapsedHr > 0 ? distanceKm / elapsedHr : 0;
     }
@@ -71,7 +92,7 @@
     const buckets = new Array(24).fill(0);
     for (const r of todayRows) {
       const hour = new Date(r.ts.getTime() + 8 * 3600 * 1000).getUTCHours();
-      buckets[hour] += r.lapsDelta;
+      buckets[hour] += r.lapsDelta ?? 0;
     }
     return buckets;
   }
@@ -80,12 +101,11 @@
     const map = {};
     for (const r of rows) {
       const d = rowDateStr(r.ts);
-      if (!map[d]) map[d] = { start: r.total_laps, end: r.total_laps };
-      else map[d].end = r.total_laps;
+      map[d] = (map[d] ?? 0) + (r.lapsDelta ?? 0);
     }
     return Object.entries(map)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, { start, end }]) => ({ date, laps: Math.max(0, end - start) }));
+      .map(([date, laps]) => ({ date, laps }));
   }
 
   function classifyActivity(speedKmh) {
@@ -101,10 +121,7 @@
     const today = todayDateStr();
     const todayRows = rows.filter(r => rowDateStr(r.ts) === today);
 
-    const todayLaps =
-      todayRows.length < 2
-        ? todayRows.reduce((s, r) => s + r.lapsDelta, 0)
-        : Math.max(0, todayRows[todayRows.length - 1].total_laps - todayRows[0].total_laps);
+    const todayLaps = todayRows.reduce((sum, row) => sum + (row.lapsDelta ?? 0), 0);
 
     const todayDistanceM = todayLaps * CONFIG.WHEEL_CIRCUMFERENCE_M;
 
@@ -134,7 +151,7 @@
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
     const rows = parseCsv(text);
-    computeRpm(rows);
+    computeRates(rows);
     smoothSeries(rows, CONFIG.SMOOTHING_WINDOW);
     const stats = computeStats(rows);
     const hourly = buildHourly(rows);
