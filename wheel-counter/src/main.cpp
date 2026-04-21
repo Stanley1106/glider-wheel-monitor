@@ -18,6 +18,7 @@ constexpr long TIMEZONE_OFFSET_SEC = 8 * 3600;
 constexpr int DAYLIGHT_OFFSET_SEC = 0;
 constexpr char NTP_PRIMARY[] = "pool.ntp.org";
 constexpr char NTP_SECONDARY[] = "time.google.com";
+constexpr unsigned long MIDNIGHT_CHECK_INTERVAL_MS = 250;
 }
 
 DHT dht(DHT_PIN, DHT22);
@@ -31,6 +32,9 @@ bool lastSensorPin = HIGH;
 portMUX_TYPE dataMux = portMUX_INITIALIZER_UNLOCKED;
 
 unsigned long lastUploadLaps = 0;
+bool hasSeenLocalDay = false;
+int lastLocalYear = -1;
+int lastLocalYDay = -1;
 
 float lastTemp = 0, lastHum = 0, lastLux = 0, lastSpeedKmh = 0;
 
@@ -70,6 +74,42 @@ String getTimestamp() {
   char buf[24];
   strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &t);
   return String(buf);
+}
+
+void resetLapsAtMidnightIfNeeded() {
+  static unsigned long lastCheckMs = 0;
+  unsigned long nowMs = millis();
+  if (nowMs - lastCheckMs < MIDNIGHT_CHECK_INTERVAL_MS) return;
+  lastCheckMs = nowMs;
+
+  time_t now = time(nullptr);
+  if (now < 946684800) return;  // Wait until SNTP has synced a real date.
+
+  struct tm t;
+  localtime_r(&now, &t);
+
+  if (!hasSeenLocalDay) {
+    hasSeenLocalDay = true;
+    lastLocalYear = t.tm_year;
+    lastLocalYDay = t.tm_yday;
+    return;
+  }
+
+  if (t.tm_year == lastLocalYear && t.tm_yday == lastLocalYDay) return;
+
+  unsigned long previousTotal = 0;
+  portENTER_CRITICAL(&dataMux);
+  previousTotal = lapCount;
+  lapCount = 0;
+  lastUploadLaps = 0;
+  portEXIT_CRITICAL(&dataMux);
+
+  lastLocalYear = t.tm_year;
+  lastLocalYDay = t.tm_yday;
+  lastSpeedKmh = 0;
+
+  Serial.printf("Daily lap reset: %s previous_total=%lu\n", getTimestamp().c_str(), previousTotal);
+  updateDisplay();
 }
 
 void connectWiFi() {
@@ -157,6 +197,8 @@ void setup() {
 }
 
 void loop() {
+  resetLapsAtMidnightIfNeeded();
+
   bool currentPin = digitalRead(SENSOR_PIN);
 
   if (currentPin == HIGH && lastSensorPin == LOW) {
