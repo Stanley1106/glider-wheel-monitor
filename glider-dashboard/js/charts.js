@@ -67,6 +67,19 @@
       grid: GRID,
       tooltip: TOOLTIP,
       noData: NO_DATA,
+      responsive: [{
+        breakpoint: 480,
+        options: {
+          xaxis: {
+            tickAmount: 12,
+            labels: {
+              rotate: -45,
+              hideOverlappingLabels: true,
+              formatter: v => Number(v) % 2 === 0 ? v + 'h' : '',
+            },
+          },
+        },
+      }],
     });
     charts.hourly.render();
 
