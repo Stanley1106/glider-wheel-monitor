@@ -11,7 +11,7 @@
   function initCharts() {
     charts.rpm = new ApexCharts(document.getElementById('chart-rpm'), {
       chart: {
-        type: 'area',
+        type: 'scatter',
         height: 180,
         background: CHART_THEME.background,
         foreColor: CHART_THEME.foreColor,
@@ -19,30 +19,20 @@
         zoom: { enabled: true },
         animations: { enabled: true, easing: 'easeinout', speed: 350 },
       },
-      series: [{ name: 'Speed', data: [] }],
+      series: [{ name: 'Laps', data: [] }],
       xaxis: { type: 'datetime', labels: { datetimeUTC: false } },
-      yaxis: { min: 0, labels: { formatter: v => v.toFixed(1) } },
-      stroke: { curve: 'smooth', width: 2 },
-      fill: {
-        type: 'gradient',
-        gradient: {
-          shadeIntensity: 1,
-          opacityFrom: 0.35,
-          opacityTo: 0.02,
-          stops: [0, 100],
-        },
-      },
+      yaxis: { min: 0, labels: { formatter: v => Math.round(v).toString() } },
+      markers: { size: 4, colors: ['#39d353'], strokeWidth: 0 },
       colors: ['#39d353'],
       grid: GRID,
       tooltip: {
         custom: ({ series, seriesIndex, dataPointIndex, w }) => {
           const ts = w.globals.seriesX[0][dataPointIndex];
-          const speed = series[0][dataPointIndex];
-          const rpm = (w.config.series[0].data[dataPointIndex] || {}).rpm || 0;
+          const laps = series[0][dataPointIndex];
           const time = new Date(ts).toLocaleTimeString('zh-TW', { hour12: false, timeZone: 'Asia/Taipei' });
           return '<div style="padding:8px 12px;background:#0d120d;border:1px solid #1a2a1a;border-radius:4px;font-family:monospace;font-size:12px">' +
-            '<div style="color:#39d353">' + speed.toFixed(1) + ' km/h</div>' +
-            '<div style="color:#6b7280">' + rpm.toFixed(1) + ' RPM · ' + time + '</div>' +
+            '<div style="color:#39d353">' + laps + ' laps</div>' +
+            '<div style="color:#6b7280">' + time + '</div>' +
             '</div>';
         },
       },
@@ -134,17 +124,6 @@
           labels: { formatter: v => v.toFixed(0) + '%' },
         },
       ],
-      annotations: {
-        yaxis: [
-          {
-            y: CONFIG.COMFORT_TEMP_MIN,
-            y2: CONFIG.COMFORT_TEMP_MAX,
-            fillColor: '#39d353',
-            opacity: 0.06,
-            label: { text: 'comfort zone', style: { color: '#39d353', background: 'rgba(10,15,10,0.85)' } },
-          },
-        ],
-      },
       stroke: { curve: 'smooth', width: [2, 2], dashArray: [0, 4] },
       colors: ['#f87171', '#60a5fa'],
       grid: GRID,
@@ -183,6 +162,7 @@
 
     const now = Date.now();
     const cutoff = {
+      '1h': now - 3600000,
       today: (() => {
         const d = new Date(now + 8 * 3600 * 1000);
         d.setUTCHours(0, 0, 0, 0);
@@ -196,8 +176,8 @@
     const filtered = rows.filter(r => r.ts.getTime() >= cutoff);
 
     charts.rpm.updateSeries([{
-      name: 'Speed',
-      data: filtered.map(r => ({ x: r.ts.getTime(), y: parseFloat((r.speedKmhSmooth ?? 0).toFixed(2)), rpm: +(r.rpmSmooth ?? r.rpm ?? 0).toFixed(1) })),
+      name: 'Laps',
+      data: filtered.map(r => ({ x: r.ts.getTime(), y: r.lapsDelta ?? 0 })),
     }]);
 
     charts.hourly.updateSeries([{ name: 'Laps', data: hourly }]);
