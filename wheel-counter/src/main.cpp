@@ -9,17 +9,16 @@
 #include <Adafruit_SSD1306.h>
 #include "config.h"
 
-#define SENSOR_PIN         7   // IRS-180 / FC-51
-#define DHT_PIN            2
-#define I2C_SDA            5
-#define I2C_SCL            6
-#define DEBOUNCE_MS        100
-#define WHEEL_CIRC_M       0.88f
-#define UPLOAD_INTERVAL_MS 10000
+namespace {
+constexpr int OLED_WIDTH = 128;
+constexpr int OLED_HEIGHT = 64;
+constexpr uint8_t OLED_ADDR = 0x3C;
 
-#define OLED_WIDTH  128
-#define OLED_HEIGHT 64
-#define OLED_ADDR   0x3C
+constexpr long TIMEZONE_OFFSET_SEC = 8 * 3600;
+constexpr int DAYLIGHT_OFFSET_SEC = 0;
+constexpr char NTP_PRIMARY[] = "pool.ntp.org";
+constexpr char NTP_SECONDARY[] = "time.google.com";
+}
 
 DHT dht(DHT_PIN, DHT22);
 BH1750 lightMeter;
@@ -33,22 +32,21 @@ portMUX_TYPE dataMux = portMUX_INITIALIZER_UNLOCKED;
 
 unsigned long lastUploadLaps = 0;
 
-float lastTemp = 0, lastHum = 0, lastLux = 0, lastRpm = 0;
+float lastTemp = 0, lastHum = 0, lastLux = 0, lastSpeedKmh = 0;
 
 void updateDisplay() {
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);  display.printf("Laps: %lu", lapCount);
-  display.setCursor(0, 12); display.printf("Dist: %.2f m", lapCount * WHEEL_CIRC_M);
-  display.setCursor(0, 24); display.printf("RPM:  %.1f", lastRpm);
-  display.setCursor(0, 36); display.printf("T:%.1fC  H:%.0f%%", lastTemp, lastHum);
+  display.setCursor(0, 16); display.printf("Speed: %.2f km/h", lastSpeedKmh);
+  display.setCursor(0, 32); display.printf("T:%.1fC  H:%.0f%%", lastTemp, lastHum);
   display.setCursor(0, 48); display.printf("Lux: %.0f", lastLux);
   display.setCursor(80, 48); display.print(WiFi.status() == WL_CONNECTED ? "WiFi OK" : "No WiFi");
   display.display();
 }
 
-void addLap(const char* source) {
+void addLap() {
   unsigned long now = millis();
   if (now - lastTrigger <= DEBOUNCE_MS) return;
 
@@ -60,10 +58,7 @@ void addLap(const char* source) {
 
   lastTrigger = now;
 
-  float distance = lapsSnapshot * WHEEL_CIRC_M;
-  Serial.printf("[%s] Laps: %lu  Distance: %.2f m\n", source, lapsSnapshot, distance);
-  Serial.printf(">laps:%lu\n", lapsSnapshot);
-  Serial.printf(">distance:%.2f\n", distance);
+  Serial.printf("Laps: %lu\n", lapsSnapshot);
   updateDisplay();
 }
 
@@ -83,7 +78,7 @@ void connectWiFi() {
     Serial.print(".");
   }
   Serial.printf("\nWiFi connected: %s\n", WiFi.localIP().toString().c_str());
-  configTime(8 * 3600, 0, "pool.ntp.org", "time.google.com");
+  configTime(TIMEZONE_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_PRIMARY, NTP_SECONDARY);
   Serial.print("NTP sync");
   struct tm t;
   while (!getLocalTime(&t)) { delay(500); Serial.print("."); }
@@ -104,14 +99,15 @@ void uploadTask(void* param) {
     if (lux < 0)     lux  = 0;
 
     portENTER_CRITICAL(&dataMux);
-    unsigned long laps  = lapCount;
-    unsigned long delta = lapCount - lastUploadLaps;
+    unsigned long laps = lapCount;
+    unsigned long lapDelta = lapCount - lastUploadLaps;
     lastUploadLaps = lapCount;
     portEXIT_CRITICAL(&dataMux);
 
-    float rpm = delta * (60000.0f / UPLOAD_INTERVAL_MS);
-
-    lastTemp = temp; lastHum = hum; lastLux = lux; lastRpm = rpm;
+    lastTemp = temp;
+    lastHum = hum;
+    lastLux = lux;
+    lastSpeedKmh = lapDelta * WHEEL_CIRC_M * 3600.0f / UPLOAD_INTERVAL_MS;
     updateDisplay();
 
     if (WiFi.status() != WL_CONNECTED) connectWiFi();
@@ -119,14 +115,14 @@ void uploadTask(void* param) {
     String ts = getTimestamp();
     String url = String(SCRIPT_URL)
       + "?ts="          + ts
-      + "&laps_delta="  + delta
+      + "&laps="        + laps
       + "&temperature=" + temp
       + "&humidity="    + hum
       + "&lux="         + lux;
     http.begin(url);
     http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     int code = http.GET();
-    Serial.printf("Upload: HTTP %d  delta=%lu T=%.1f H=%.1f Lux=%.0f\n", code, delta, temp, hum, lux);
+    Serial.printf("Upload: HTTP %d laps=%lu T=%.1f H=%.1f Lux=%.0f\n", code, laps, temp, hum, lux);
     http.end();
   }
 }
@@ -161,7 +157,7 @@ void loop() {
   bool currentPin = digitalRead(SENSOR_PIN);
 
   if (currentPin == HIGH && lastSensorPin == LOW) {
-    addLap("IR");
+    addLap();
   }
 
   lastSensorPin = currentPin;
