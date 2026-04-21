@@ -35,10 +35,12 @@ unsigned long lastUploadLaps = 0;
 float lastTemp = 0, lastHum = 0, lastLux = 0, lastSpeedKmh = 0;
 
 void updateDisplay() {
+  float distanceMeters = lapCount * WHEEL_CIRC_M;
+
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);  display.printf("Laps: %lu", lapCount);
+  display.setCursor(0, 0);  display.printf("Laps:%lu Dist:%.1fm", lapCount, distanceMeters);
   display.setCursor(0, 16); display.printf("Speed: %.2f km/h", lastSpeedKmh);
   display.setCursor(0, 32); display.printf("T:%.1fC  H:%.0f%%", lastTemp, lastHum);
   display.setCursor(0, 48); display.printf("Lux: %.0f", lastLux);
