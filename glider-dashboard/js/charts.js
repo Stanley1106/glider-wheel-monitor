@@ -20,42 +20,55 @@
     return series.some(item => Array.isArray(item.data) && item.data.length > 0);
   }
 
-  function syncChartNoDataFlag(chart, isEmpty) {
-    if (!chart?.w?.globals) return;
-    chart.w.globals.noData = isEmpty;
-  }
+  function mergeChartOptions(target, patch) {
+    if (!patch) return target;
 
-  function ensureChartToolbar(chart, isEmpty) {
-    const existingToolbar = chart?.w?.dom?.baseEl?.querySelector('.apexcharts-toolbar');
+    for (const [key, value] of Object.entries(patch)) {
+      if (Array.isArray(value) || value === null || typeof value !== 'object') {
+        target[key] = value;
+        continue;
+      }
 
-    if (
-      isEmpty ||
-      !chart?.w?.config?.chart?.toolbar?.show ||
-      chart?.w?.globals?.allSeriesCollapsed
-    ) {
-      existingToolbar?.remove();
-      return;
+      target[key] = { ...(target[key] ?? {}), ...value };
     }
 
-    if (!existingToolbar) {
-      chart.toolbar?.createToolbar();
-    }
+    return target;
   }
 
-  function updateSeriesWithNoDataState(chart, series) {
+  function remountChart(key, patch) {
+    const chart = charts[key];
+    const el = chart.el;
+    const config = chart.w.config;
+
+    mergeChartOptions(config, patch);
+
+    chart.destroy();
+
+    const nextChart = new ApexCharts(el, config);
+    charts[key] = nextChart;
+    return nextChart.render();
+  }
+
+  function updateAxisChart(key, series, options) {
+    const chart = charts[key];
     const hasData = hasSeriesData(series);
-    chart
-      .updateOptions({ noData: hasData ? { ...NO_DATA, text: '' } : NO_DATA }, false, false, false)
-      .then(() => chart.updateSeries(series))
-      .then(() => {
-        syncChartNoDataFlag(chart, !hasData);
-        ensureChartToolbar(chart, !hasData);
+    const noData = hasData ? { ...NO_DATA, text: '' } : NO_DATA;
 
-        requestAnimationFrame(() => {
-          const noDataOverlay = chart.el?.querySelector('.apexcharts-text-nodata');
-          if (noDataOverlay) noDataOverlay.style.display = hasData ? 'none' : '';
-        });
-      });
+    if (chart.w?.globals?.noData !== !hasData) {
+      return remountChart(key, { ...options, noData, series });
+    }
+
+    if (options) {
+      chart.updateOptions(options, false, false, false);
+    }
+
+    chart.updateOptions({ noData }, false, false, false);
+    chart.updateSeries(series);
+
+    requestAnimationFrame(() => {
+      const noDataOverlay = chart.el?.querySelector('.apexcharts-text-nodata');
+      if (noDataOverlay) noDataOverlay.style.display = hasData ? 'none' : '';
+    });
   }
 
   function initCharts() {
@@ -237,7 +250,7 @@
 
     const filtered = rows.filter(r => r.ts.getTime() >= cutoff);
 
-    updateSeriesWithNoDataState(charts.rpm, [{
+    updateAxisChart('rpm', [{
       name: 'Laps',
       data: filtered.map(r => ({ x: r.ts.getTime(), y: r.lapsDelta ?? 0 })),
     }]);
@@ -248,23 +261,22 @@
     }, false, false, false);
     charts.hourly.updateSeries([{ name: 'Laps', data: hourly }]);
 
-    updateSeriesWithNoDataState(charts.luxRpm, [
+    updateAxisChart('luxRpm', [
       { name: 'RPM', data: filtered.map(r => ({ x: r.ts.getTime(), y: parseFloat(r.rpm.toFixed(2)) })) },
       { name: 'Lux', data: filtered.filter(r => r.lux !== null).map(r => ({ x: r.ts.getTime(), y: r.lux })) },
     ]);
 
-    updateSeriesWithNoDataState(charts.env, [
+    updateAxisChart('env', [
       { name: 'Temp (°C)', data: filtered.filter(r => r.temperature !== null).map(r => ({ x: r.ts.getTime(), y: r.temperature })) },
       { name: 'Humidity (%)', data: filtered.filter(r => r.humidity !== null).map(r => ({ x: r.ts.getTime(), y: r.humidity })) },
     ]);
 
-    charts.daily.updateOptions({
-      xaxis: { categories: daily.map(d => d.date) },
-    }, false, false, false);
-    updateSeriesWithNoDataState(charts.daily, [{
+    updateAxisChart('daily', [{
       name: 'Laps',
       data: daily.map(d => d.laps),
-    }]);
+    }], {
+      xaxis: { categories: daily.map(d => d.date) },
+    });
   };
 
   window._charts = charts;
