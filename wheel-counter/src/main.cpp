@@ -9,7 +9,7 @@
 #include <Adafruit_SSD1306.h>
 #include "config.h"
 
-#define SENSOR_PIN         4
+#define SENSOR_PIN         7   // IRS-180 / FC-51
 #define DHT_PIN            2
 #define I2C_SDA            5
 #define I2C_SCL            6
@@ -25,10 +25,9 @@ DHT dht(DHT_PIN, DHT22);
 BH1750 lightMeter;
 Adafruit_SSD1306 display(OLED_WIDTH, OLED_HEIGHT, &Wire, -1);
 
-// 計圈變數，只在 main loop 讀寫，不需 mutex
 unsigned long lapCount = 0;
 unsigned long lastTrigger = 0;
-bool lastPin = HIGH;
+bool lastSensorPin = HIGH;
 
 portMUX_TYPE dataMux = portMUX_INITIALIZER_UNLOCKED;
 
@@ -49,6 +48,25 @@ void updateDisplay() {
   display.display();
 }
 
+void addLap(const char* source) {
+  unsigned long now = millis();
+  if (now - lastTrigger <= DEBOUNCE_MS) return;
+
+  unsigned long lapsSnapshot;
+  portENTER_CRITICAL(&dataMux);
+  lapCount++;
+  lapsSnapshot = lapCount;
+  portEXIT_CRITICAL(&dataMux);
+
+  lastTrigger = now;
+
+  float distance = lapsSnapshot * WHEEL_CIRC_M;
+  Serial.printf("[%s] Laps: %lu  Distance: %.2f m\n", source, lapsSnapshot, distance);
+  Serial.printf(">laps:%lu\n", lapsSnapshot);
+  Serial.printf(">distance:%.2f\n", distance);
+  updateDisplay();
+}
+
 String getTimestamp() {
   struct tm t;
   if (!getLocalTime(&t)) return "1970/01/01 00:00:00";
@@ -65,7 +83,6 @@ void connectWiFi() {
     Serial.print(".");
   }
   Serial.printf("\nWiFi connected: %s\n", WiFi.localIP().toString().c_str());
-  // UTC+8 台灣時間，無夏令時
   configTime(8 * 3600, 0, "pool.ntp.org", "time.google.com");
   Serial.print("NTP sync");
   struct tm t;
@@ -73,14 +90,12 @@ void connectWiFi() {
   Serial.printf("\nTime: %s\n", getTimestamp().c_str());
 }
 
-// 背景上傳 task
 void uploadTask(void* param) {
   connectWiFi();
 
   while (true) {
     vTaskDelay(pdMS_TO_TICKS(UPLOAD_INTERVAL_MS));
 
-    // 讀感測器
     float temp = dht.readTemperature();
     float hum  = dht.readHumidity();
     float lux  = lightMeter.readLightLevel();
@@ -88,7 +103,6 @@ void uploadTask(void* param) {
     if (isnan(hum))  hum  = 0;
     if (lux < 0)     lux  = 0;
 
-    // 取計圈快照
     portENTER_CRITICAL(&dataMux);
     unsigned long laps  = lapCount;
     unsigned long delta = lapCount - lastUploadLaps;
@@ -97,11 +111,9 @@ void uploadTask(void* param) {
 
     float rpm = delta * (60000.0f / UPLOAD_INTERVAL_MS);
 
-    // 更新顯示用快取
     lastTemp = temp; lastHum = hum; lastLux = lux; lastRpm = rpm;
     updateDisplay();
 
-    // 上傳（只送原始資料，Sheets 負責計算其餘欄位）
     if (WiFi.status() != WL_CONNECTED) connectWiFi();
     HTTPClient http;
     String ts = getTimestamp();
@@ -140,7 +152,6 @@ void setup() {
 
   pinMode(SENSOR_PIN, INPUT_PULLUP);
 
-  // 上傳 task 跑在背景，stack 8KB，priority 1
   xTaskCreate(uploadTask, "upload", 8192, NULL, 1, NULL);
 
   Serial.println("Wheel counter ready.");
@@ -148,20 +159,11 @@ void setup() {
 
 void loop() {
   bool currentPin = digitalRead(SENSOR_PIN);
-  unsigned long now = millis();
 
-  if (currentPin == LOW && lastPin == HIGH && (now - lastTrigger > DEBOUNCE_MS)) {
-    portENTER_CRITICAL(&dataMux);
-    lapCount++;
-    portEXIT_CRITICAL(&dataMux);
-    lastTrigger = now;
-
-    float distance = lapCount * WHEEL_CIRC_M;
-    Serial.printf("Laps: %lu  Distance: %.2f m\n", lapCount, distance);
-    Serial.printf(">laps:%lu\n", lapCount);
-    Serial.printf(">distance:%.2f\n", distance);
-    updateDisplay();
+  if (currentPin == HIGH && lastSensorPin == LOW) {
+    addLap("IR");
   }
-  lastPin = currentPin;
+
+  lastSensorPin = currentPin;
   delay(1);
 }
