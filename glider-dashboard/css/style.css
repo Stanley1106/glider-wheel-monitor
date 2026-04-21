@@ -68,6 +68,19 @@ body.is-active .stat-card:nth-child(3) { border-color: var(--accent); box-shadow
 }
 .range-btn.active { background: var(--border); color: var(--accent); }
 .range-btn:hover:not(.active) { border-color: var(--accent); color: var(--text); }
+.range-btn:disabled,
+.range-btn.disabled {
+  color: #4b5563;
+  border-color: #141b14;
+  background: #0b0f0b;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.range-btn:disabled:hover,
+.range-btn.disabled:hover {
+  border-color: #141b14;
+  color: #4b5563;
+}
 
 /* ── Stat cards ──────────────────────────── */
 .stat-cards {
