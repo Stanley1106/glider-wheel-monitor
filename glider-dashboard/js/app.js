@@ -56,9 +56,10 @@
   });
 
   document.addEventListener('DOMContentLoaded', () => {
-    initCharts();
-    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
-    refresh();
-    setInterval(refresh, CONFIG.REFRESH_INTERVAL_MS);
+    requestAnimationFrame(() => {
+      initCharts();
+      refresh();
+      setInterval(refresh, CONFIG.REFRESH_INTERVAL_MS);
+    });
   });
 })();
