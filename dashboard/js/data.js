@@ -1,14 +1,12 @@
 (function () {
   function buildColumnIndex(headers) {
-    const normalized = headers.map(header => header.trim().toLowerCase());
-    const findColumn = (...names) => normalized.findIndex(header => names.includes(header));
-
+    const normalized = headers.map(h => h.trim().toLowerCase());
     return {
-      ts: findColumn('timestamp', 'ts'),
-      laps: findColumn('laps_delta', 'lap_delta', 'total_laps', 'laps_total'),
-      temperature: findColumn('temperature', 'temp'),
-      humidity: findColumn('humidity'),
-      lux: findColumn('lux'),
+      ts: normalized.indexOf('timestamp'),
+      laps: normalized.indexOf('laps_delta'),
+      temperature: normalized.indexOf('temperature'),
+      humidity: normalized.indexOf('humidity'),
+      lux: normalized.indexOf('lux'),
     };
   }
 
