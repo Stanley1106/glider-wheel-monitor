@@ -1,107 +1,142 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sugar Glider Dashboard</title>
+  <title>Sugar Glider Monitor</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
-  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
   <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
 <div class="page">
-
-  <!-- Header -->
   <header class="header">
     <div class="header-left">
-      <span class="header-title">Sugar Glider Dashboard</span>
-      <span class="header-updated" id="last-updated">—</span>
+      <span class="header-title">Sugar <mark>Glider</mark> Monitor</span>
+      <span class="header-updated" id="last-updated">upd --:--:--</span>
     </div>
     <div class="header-right">
-      <span class="status-pill" id="status-pill">○ sleeping</span>
+      <span class="status-pill sleeping" id="status-pill">
+        <span class="status-dot"></span>
+        <span id="status-text">sleeping</span>
+      </span>
       <div class="range-buttons">
         <button class="range-btn" data-range="1h">1h</button>
-        <button class="range-btn active" data-range="today">Today</button>
+        <button class="range-btn active" data-range="today">today</button>
         <button class="range-btn" data-range="7d">7d</button>
         <button class="range-btn" data-range="30d">30d</button>
-        <button class="range-btn" data-range="all">All</button>
+        <button class="range-btn" data-range="all">all</button>
       </div>
+      <button class="theme-btn" id="theme-btn">light</button>
     </div>
   </header>
 
-  <!-- Error banner -->
-  <div class="error-banner" id="error-banner">Unable to fetch data — retrying...</div>
+  <div class="error-banner" id="error-banner">fetch failed - retrying</div>
 
-  <!-- Stat cards -->
-  <div class="stat-cards">
-    <div class="stat-card">
-      <div class="stat-value" id="stat-laps">—</div>
+  <div class="stat-bar">
+    <div class="stat-item">
       <div class="stat-label">Today Laps</div>
+      <div class="stat-value" id="stat-laps">--</div>
     </div>
-    <div class="stat-card">
-      <div class="stat-value" id="stat-distance">—</div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
       <div class="stat-label">Distance</div>
+      <div class="stat-value" id="stat-distance">--</div>
     </div>
-    <div class="stat-card">
-      <div class="stat-value" id="stat-rpm">—</div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
       <div class="stat-label">Current Speed</div>
+      <div class="stat-value speed-val" id="stat-rpm">--</div>
     </div>
-    <div class="stat-card">
-      <div class="stat-value secondary" id="stat-temp">—</div>
-      <div class="stat-sub" id="stat-humidity">—</div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
       <div class="stat-label">Temp / Humidity</div>
+      <div class="stat-combo">
+        <div class="stat-value secondary" id="stat-temp">--</div>
+        <div class="stat-sub" id="stat-humidity">--</div>
+      </div>
     </div>
-    <div class="stat-card">
-      <div class="stat-value secondary" id="stat-lux">—</div>
-      <div class="stat-label">Light (lux)</div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <div class="stat-label">Light</div>
+      <div class="stat-value secondary" id="stat-lux">--</div>
     </div>
   </div>
 
-  <!-- RPM chart (full width) -->
-  <div class="chart-full chart-box">
-    <div class="chart-title">Laps over time</div>
+  <div class="chart-full chart-box chart-hero">
+    <div class="chart-header">
+      <span class="chart-title">Laps over time</span>
+      <span class="chart-range">today</span>
+    </div>
     <div id="chart-rpm"></div>
   </div>
+  <div id="hmap-tooltip"></div>
 
-  <!-- Hourly activity + Light vs RPM -->
-  <div class="chart-grid">
-    <div class="chart-box">
-      <div class="chart-title">Hourly activity (laps)</div>
-      <div id="chart-hourly"></div>
+  <div class="secondary-panel">
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="activity">Activity</button>
+      <button class="tab-btn" data-tab="environment">Environment</button>
+      <button class="tab-btn" data-tab="history">History</button>
     </div>
-    <div class="chart-box">
-      <div class="chart-title">Light vs RPM</div>
-      <div id="chart-lux-rpm"></div>
+
+    <div class="tab-pane active chart-grid" id="tab-activity">
+      <div class="chart-box">
+        <div class="chart-header"><span class="chart-title">Hourly activity</span></div>
+        <div id="chart-hourly"></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-header"><span class="chart-title">Daily totals</span></div>
+        <div id="chart-daily"></div>
+      </div>
+    </div>
+
+    <div class="tab-pane chart-grid" id="tab-environment" style="display:none">
+      <div class="chart-box">
+        <div class="chart-header"><span class="chart-title">Temperature &amp; Humidity</span></div>
+        <div id="chart-env"></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-header"><span class="chart-title">Light vs RPM</span></div>
+        <div id="chart-lux-rpm"></div>
+      </div>
+    </div>
+
+    <div class="tab-pane" id="tab-history" style="display:none">
+      <div class="chart-box">
+        <div class="chart-header">
+          <span class="chart-title">Annual activity</span>
+          <div class="year-switcher" id="year-switcher"></div>
+        </div>
+        <div class="heatmap-wrap">
+          <div id="heatmap-outer" class="heatmap-outer"></div>
+          <div class="hmap-legend">
+            <span class="hmap-legend-label">less</span>
+            <div class="hmap-legend-cells" id="hmap-legend"></div>
+            <span class="hmap-legend-label">more</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Temp & Humidity + Daily totals -->
-  <div class="chart-grid">
-    <div class="chart-box">
-      <div class="chart-title">Temperature &amp; Humidity</div>
-      <div id="chart-env"></div>
-    </div>
-    <div class="chart-box">
-      <div class="chart-title">Daily totals</div>
-      <div id="chart-daily"></div>
-    </div>
-  </div>
-
-  <!-- Footer -->
   <footer class="footer">
-    <span>ESP32-C3 · IR Sensor · Google Sheets</span>
-    <a href="https://github.com/Stanley1106/glider-dashboard" target="_blank" rel="noopener">
-      github.com/Stanley1106/glider-dashboard
+    <span>ESP32-C3 &middot; IR Sensor &middot; Google Sheets</span>
+    <a href="https://github.com/Stanley1106/glider-wheel-monitor" target="_blank" rel="noopener">
+      github.com/Stanley1106/glider-wheel-monitor
     </a>
   </footer>
-
 </div>
+
 <script src="js/config.js"></script>
+<script src="js/theme.js"></script>
 <script src="js/data.js"></script>
 <script src="js/charts.js"></script>
+<script src="js/heatmap.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
