@@ -25,6 +25,13 @@
     };
   }
 
+  function hourlyLabel(value) {
+    const hour = Number(value);
+    if (!Number.isFinite(hour)) return '';
+    if (window.innerWidth <= 640 && hour % 4 !== 0) return '';
+    return hour + 'h';
+  }
+
   function todayStartMs() {
     const now = Date.now();
     const day = new Date(now + 8 * 3600 * 1000);
@@ -145,7 +152,10 @@
       ...commonOptions(165),
       chart: { ...commonOptions(165).chart, type: 'bar' },
       series: [{ name: 'Laps', data: new Array(24).fill(0) }],
-      xaxis: { categories: Array.from({ length: 24 }, (_, i) => i), labels: { formatter: value => value + 'h' } },
+      xaxis: {
+        categories: Array.from({ length: 24 }, (_, i) => i),
+        labels: { formatter: hourlyLabel, hideOverlappingLabels: true },
+      },
       yaxis: { min: 0, max: 2 },
       colors: [t.teal],
       plotOptions: { bar: { columnWidth: '68%', borderRadius: 2 } },

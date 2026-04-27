@@ -81,7 +81,6 @@
     <div class="tab-bar">
       <button class="tab-btn active" data-tab="activity">Activity</button>
       <button class="tab-btn" data-tab="environment">Environment</button>
-      <button class="tab-btn" data-tab="history">History</button>
     </div>
 
     <div class="tab-pane active chart-grid" id="tab-activity">
@@ -106,20 +105,21 @@
       </div>
     </div>
 
-    <div class="tab-pane" id="tab-history" style="display:none">
-      <div class="chart-box">
-        <div class="chart-header">
-          <span class="chart-title">Annual activity</span>
-          <div class="year-switcher" id="year-switcher"></div>
-        </div>
-        <div class="heatmap-wrap">
-          <div id="heatmap-outer" class="heatmap-outer"></div>
-          <div class="hmap-legend">
-            <span class="hmap-legend-label">less</span>
-            <div class="hmap-legend-cells" id="hmap-legend"></div>
-            <span class="hmap-legend-label">more</span>
-          </div>
-        </div>
+  </div>
+
+  <div class="chart-box annual-panel">
+    <div class="chart-header">
+      <span class="chart-title">Annual activity</span>
+      <div class="year-switcher" id="year-switcher"></div>
+    </div>
+    <div class="heatmap-wrap">
+      <div class="heatmap-scroll">
+        <div id="heatmap-outer" class="heatmap-outer"></div>
+      </div>
+      <div class="hmap-legend">
+        <span class="hmap-legend-label">less</span>
+        <div class="hmap-legend-cells" id="hmap-legend"></div>
+        <span class="hmap-legend-label">more</span>
       </div>
     </div>
   </div>

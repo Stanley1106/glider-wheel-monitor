@@ -223,7 +223,8 @@ body.is-active .speed-val { animation: speed-tick 2.8s ease-in-out infinite; col
 .year-btn:hover { border-color: var(--border); color: var(--fg1); }
 .year-btn.active { background: var(--teal-dim); border-color: color-mix(in srgb, var(--teal) 35%, transparent); color: var(--teal); }
 
-.heatmap-wrap { overflow-x: auto; padding-bottom: 4px; }
+.heatmap-wrap { min-width: 0; }
+.heatmap-scroll { overflow-x: auto; padding-bottom: 4px; touch-action: pan-x; }
 .heatmap-outer { min-width: fit-content; }
 .heatmap-frame { align-items: flex-start; display: flex; gap: 6px; min-width: fit-content; }
 .heatmap-ylabels { display: flex; flex-direction: column; flex-shrink: 0; gap: 2px; padding-top: 17px; }

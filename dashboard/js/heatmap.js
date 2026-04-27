@@ -35,6 +35,28 @@
     return current;
   }
 
+  function latestDataDateForYear(year) {
+    const dates = Object.entries(annualData.byDate || {})
+      .filter(([key, laps]) => laps > 0 && Number(key.slice(0, 4)) === year)
+      .map(([key]) => {
+        const [y, m, d] = key.split('-').map(Number);
+        return new Date(y, m - 1, d);
+      })
+      .filter(date => !Number.isNaN(date.getTime()))
+      .sort((a, b) => b - a);
+
+    return dates[0] || new Date(year, 0, 1);
+  }
+
+  function weeksToRender(year, offset) {
+    const today = new Date();
+    const jan1 = new Date(year, 0, 1);
+    const latest = latestDataDateForYear(year);
+    const end = year === today.getFullYear() && latest > today ? today : latest;
+    const dayIndex = Math.max(0, Math.floor((end - jan1) / 86400000));
+    return Math.max(1, Math.ceil((offset + dayIndex + 1) / 7));
+  }
+
   function renderYearSwitcher() {
     const switcher = document.getElementById('year-switcher');
     if (!switcher) return;
@@ -97,6 +119,7 @@
     const today = new Date();
     const jan1 = new Date(selectedYear, 0, 1);
     const offset = jan1.getDay();
+    const weekCount = weeksToRender(selectedYear, offset);
     let lastMonth = -1;
 
     outer.innerHTML = '';
@@ -128,7 +151,7 @@
     weeks.className = 'heatmap-weeks';
     weeks.style.gap = gapPx + 'px';
 
-    for (let week = 0; week < 53; week++) {
+    for (let week = 0; week < weekCount; week++) {
       const weekStartIndex = week * 7 - offset;
       const monthLabel = document.createElement('div');
       monthLabel.className = 'heatmap-month';
