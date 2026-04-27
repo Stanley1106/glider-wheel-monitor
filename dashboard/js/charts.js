@@ -1,19 +1,68 @@
 (function () {
-  const CHART_THEME = {
-    background: '#0d120d',
-    foreColor: '#6b7280',
-  };
-  const GRID = { borderColor: '#1a2a1a', strokeDashArray: 3 };
-  const TOOLTIP = { theme: 'dark' };
-  const NO_DATA = { text: 'No data yet', style: { color: '#6b7280' } };
-
   const charts = {};
+  let lastData = null;
+  let lastRange = 'today';
+  let themeListenerRegistered = false;
 
-  function formatDailyLabel(value) {
-    if (typeof value !== 'string') return value ?? '';
-    const [year, month, day] = value.split('-').map(Number);
-    if (!year || !month || !day) return value;
-    return `${month}/${day}`;
+  function tokens() {
+    return Theme.getTokens();
+  }
+
+  function commonOptions(height) {
+    const t = tokens();
+    return {
+      chart: {
+        height,
+        background: t.surface,
+        foreColor: t.fg2,
+        toolbar: { show: false },
+        animations: { enabled: true, easing: 'easeinout', speed: 400 },
+      },
+      dataLabels: { enabled: false },
+      grid: { borderColor: t.border, strokeDashArray: 4 },
+      tooltip: { theme: Theme.current() },
+      noData: { text: 'No data', style: { color: t.fg2 } },
+    };
+  }
+
+  function todayStartMs() {
+    const now = Date.now();
+    const day = new Date(now + 8 * 3600 * 1000);
+    day.setUTCHours(0, 0, 0, 0);
+    return day.getTime() - 8 * 3600 * 1000;
+  }
+
+  function todayStr() {
+    return window.todayDateStr ? window.todayDateStr() : new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+  }
+
+  function rowsForRange(rows, range) {
+    if (!rows) return [];
+    const now = Date.now();
+
+    if (range === '1h') return rows.filter(row => row.ts.getTime() >= now - 3600000);
+    if (range === 'today') return rows.filter(row => window.rowDateStr ? window.rowDateStr(row.ts) === todayStr() : row.ts.getTime() >= todayStartMs());
+    if (range === '7d') return rows.filter(row => row.ts.getTime() >= now - 7 * 86400000);
+    if (range === '30d') return rows.filter(row => row.ts.getTime() >= now - 30 * 86400000);
+    return rows;
+  }
+
+  function destroyCharts() {
+    Object.values(charts).forEach(chart => {
+      try {
+        chart.destroy();
+      } catch (err) {
+      }
+    });
+    Object.keys(charts).forEach(key => delete charts[key]);
+  }
+
+  function renderChart(key, selector, options) {
+    const el = document.getElementById(selector);
+    if (!el) return;
+    el.innerHTML = '';
+    charts[key] = new ApexCharts(el, options);
+    charts[key].render();
   }
 
   function hasSeriesData(series) {
@@ -29,7 +78,7 @@
         continue;
       }
 
-      target[key] = { ...(target[key] ?? {}), ...value };
+      target[key] = { ...(target[key] || {}), ...value };
     }
 
     return target;
@@ -37,25 +86,28 @@
 
   function remountChart(key, patch) {
     const chart = charts[key];
-    const el = chart.el;
-    const config = chart.w.config;
+    if (!chart?.el || !chart?.w?.config) return;
 
-    mergeChartOptions(config, patch);
+    const el = chart.el;
+    const config = mergeChartOptions(chart.w.config, patch);
 
     chart.destroy();
-
-    const nextChart = new ApexCharts(el, config);
-    charts[key] = nextChart;
-    return nextChart.render();
+    charts[key] = new ApexCharts(el, config);
+    return charts[key].render();
   }
 
   function updateAxisChart(key, series, options) {
     const chart = charts[key];
+    if (!chart) return;
+
     const hasData = hasSeriesData(series);
-    const noData = hasData ? { ...NO_DATA, text: '' } : NO_DATA;
+    const noData = hasData
+      ? { ...commonOptions(0).noData, text: '' }
+      : commonOptions(0).noData;
 
     if (chart.w?.globals?.noData !== !hasData) {
-      return remountChart(key, { ...options, noData, series });
+      remountChart(key, { ...options, noData, series });
+      return;
     }
 
     if (options) {
@@ -72,212 +124,124 @@
   }
 
   function initCharts() {
-    charts.rpm = new ApexCharts(document.getElementById('chart-rpm'), {
-      chart: {
-        type: 'line',
-        height: 180,
-        background: CHART_THEME.background,
-        foreColor: CHART_THEME.foreColor,
-        toolbar: { autoSelected: 'zoom', show: true },
-        zoom: { enabled: true },
-        animations: { enabled: true, easing: 'easeinout', speed: 350 },
-      },
+    const t = tokens();
+
+    destroyCharts();
+
+    renderChart('rpm', 'chart-rpm', {
+      ...commonOptions(200),
+      chart: { ...commonOptions(200).chart, type: 'area' },
       series: [{ name: 'Laps', data: [] }],
       xaxis: { type: 'datetime', labels: { datetimeUTC: false } },
-      yaxis: { min: 0, labels: { formatter: v => Math.round(v).toString() } },
-      stroke: { curve: 'smooth', width: 2 },
+      yaxis: { min: 0, labels: { formatter: value => Math.round(value).toString() } },
+      stroke: { curve: 'smooth', width: 1.5 },
+      fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: .22, opacityTo: .01, stops: [0, 85] } },
+      colors: [t.teal],
       markers: { size: 0 },
-      colors: ['#39d353'],
-      grid: GRID,
-      tooltip: { ...TOOLTIP, x: { format: 'HH:mm:ss' } },
-      noData: NO_DATA,
+      tooltip: { theme: Theme.current(), x: { format: 'HH:mm' } },
     });
-    charts.rpm.render();
 
-    charts.hourly = new ApexCharts(document.getElementById('chart-hourly'), {
-      chart: {
-        type: 'bar',
-        height: 180,
-        background: CHART_THEME.background,
-        foreColor: CHART_THEME.foreColor,
-        toolbar: { show: false },
-        animations: { enabled: true, easing: 'easeinout', speed: 350 },
-      },
+    renderChart('hourly', 'chart-hourly', {
+      ...commonOptions(165),
+      chart: { ...commonOptions(165).chart, type: 'bar' },
       series: [{ name: 'Laps', data: new Array(24).fill(0) }],
-      xaxis: {
-        categories: Array.from({ length: 24 }, (_, i) => i),
-        labels: { formatter: v => v + 'h' },
-      },
+      xaxis: { categories: Array.from({ length: 24 }, (_, i) => i), labels: { formatter: value => value + 'h' } },
       yaxis: { min: 0, max: 2 },
-      colors: ['#39d353'],
-      plotOptions: { bar: { columnWidth: '70%', borderRadius: 2 } },
-      grid: GRID,
-      tooltip: TOOLTIP,
-      noData: NO_DATA,
-      responsive: [{
-        breakpoint: 480,
-        options: {
-          xaxis: {
-            tickAmount: 12,
-            labels: {
-              rotate: -45,
-              hideOverlappingLabels: true,
-              formatter: v => Number(v) % 2 === 0 ? v + 'h' : '',
-            },
-          },
-        },
-      }],
+      colors: [t.teal],
+      plotOptions: { bar: { columnWidth: '68%', borderRadius: 2 } },
     });
-    charts.hourly.render();
 
-    charts.luxRpm = new ApexCharts(document.getElementById('chart-lux-rpm'), {
-      chart: {
-        type: 'line',
-        height: 180,
-        background: CHART_THEME.background,
-        foreColor: CHART_THEME.foreColor,
-        toolbar: { show: false },
-        animations: { enabled: true, easing: 'easeinout', speed: 350 },
-      },
-      series: [
-        { name: 'RPM', data: [] },
-        { name: 'Lux', data: [] },
-      ],
+    renderChart('luxRpm', 'chart-lux-rpm', {
+      ...commonOptions(165),
+      chart: { ...commonOptions(165).chart, type: 'line' },
+      series: [{ name: 'RPM', data: [] }, { name: 'Lux', data: [] }],
       xaxis: { type: 'datetime', labels: { datetimeUTC: false } },
       yaxis: [
-        { seriesName: 'RPM', min: 0, labels: { formatter: v => v.toFixed(1) } },
-        {
-          seriesName: 'Lux',
-          opposite: true,
-          min: 0,
-          labels: { formatter: v => v.toFixed(0) },
-        },
+        { seriesName: 'RPM', min: 0, labels: { formatter: value => value.toFixed(1) } },
+        { seriesName: 'Lux', opposite: true, min: 0, labels: { formatter: value => Math.round(value).toString() } },
       ],
-      stroke: { curve: 'smooth', width: [2, 2], dashArray: [0, 4] },
-      colors: ['#39d353', '#fbbf24'],
-      grid: GRID,
-      tooltip: { ...TOOLTIP, x: { format: 'HH:mm:ss' }, shared: true },
-      legend: { labels: { colors: '#9ca3af' } },
-      noData: NO_DATA,
+      stroke: { curve: 'smooth', width: [1.5, 1.5], dashArray: [0, 5] },
+      colors: [t.teal, t.lux],
+      tooltip: { theme: Theme.current(), x: { format: 'HH:mm' }, shared: true },
+      legend: { labels: { colors: t.fg2 } },
     });
-    charts.luxRpm.render();
 
-    charts.env = new ApexCharts(document.getElementById('chart-env'), {
-      chart: {
-        type: 'line',
-        height: 180,
-        background: CHART_THEME.background,
-        foreColor: CHART_THEME.foreColor,
-        toolbar: { show: false },
-        animations: { enabled: true, easing: 'easeinout', speed: 350 },
-      },
-      series: [
-        { name: 'Temp (°C)', data: [] },
-        { name: 'Humidity (%)', data: [] },
-      ],
+    renderChart('env', 'chart-env', {
+      ...commonOptions(165),
+      chart: { ...commonOptions(165).chart, type: 'line' },
+      series: [{ name: 'Temp (°C)', data: [] }, { name: 'Humidity (%)', data: [] }],
       xaxis: { type: 'datetime', labels: { datetimeUTC: false } },
       yaxis: [
-        {
-          seriesName: 'Temp (°C)',
-          min: 15,
-          max: 35,
-          labels: { formatter: v => v.toFixed(1) + '°' },
-        },
-        {
-          seriesName: 'Humidity (%)',
-          opposite: true,
-          min: 0,
-          max: 100,
-          labels: { formatter: v => v.toFixed(0) + '%' },
-        },
+        { seriesName: 'Temp (°C)', min: 15, max: 35, labels: { formatter: value => value.toFixed(1) + '°C' } },
+        { seriesName: 'Humidity (%)', opposite: true, min: 0, max: 100, labels: { formatter: value => Math.round(value) + '%' } },
       ],
-      stroke: { curve: 'smooth', width: [2, 2], dashArray: [0, 4] },
-      colors: ['#f87171', '#60a5fa'],
-      grid: GRID,
-      tooltip: { ...TOOLTIP, x: { format: 'HH:mm:ss' }, shared: true },
-      legend: { labels: { colors: '#9ca3af' } },
-      noData: NO_DATA,
+      stroke: { curve: 'smooth', width: [1.5, 1.5], dashArray: [0, 5] },
+      colors: [t.rose, t.steel],
+      tooltip: { theme: Theme.current(), x: { format: 'HH:mm' }, shared: true },
+      legend: { labels: { colors: t.fg2 } },
     });
-    charts.env.render();
 
-    charts.daily = new ApexCharts(document.getElementById('chart-daily'), {
-      chart: {
-        type: 'bar',
-        height: 180,
-        background: CHART_THEME.background,
-        foreColor: CHART_THEME.foreColor,
-        toolbar: { show: false },
-        animations: { enabled: true, easing: 'easeinout', speed: 350 },
-      },
+    renderChart('daily', 'chart-daily', {
+      ...commonOptions(165),
+      chart: { ...commonOptions(165).chart, type: 'bar' },
       series: [{ name: 'Laps', data: [] }],
-      xaxis: {
-        type: 'category',
-        categories: [],
-        labels: {
-          formatter: value => formatDailyLabel(value),
-          rotate: -45,
-          hideOverlappingLabels: false,
-        },
-      },
+      xaxis: { categories: [] },
       yaxis: { min: 0 },
-      colors: ['#39d353'],
-      plotOptions: { bar: { columnWidth: '60%', borderRadius: 2 } },
-      grid: GRID,
-      tooltip: { ...TOOLTIP, x: { formatter: value => value } },
-      noData: NO_DATA,
+      colors: [t.gold],
+      plotOptions: { bar: { columnWidth: '55%', borderRadius: 2 } },
     });
-    charts.daily.render();
+
+    if (!themeListenerRegistered) {
+      Theme.onChange(window.rebuildCharts);
+      themeListenerRegistered = true;
+    }
   }
 
-  window.initCharts = initCharts;
-
-  window.updateCharts = function updateCharts(data, range) {
+  function updateCharts(data, range) {
     if (!data) return;
-    const { rows, hourly, daily } = data;
+    lastData = data;
+    lastRange = range || lastRange;
 
-    const now = Date.now();
-    const cutoff = {
-      '1h': now - 3600000,
-      today: (() => {
-        const d = new Date(now + 8 * 3600 * 1000);
-        d.setUTCHours(0, 0, 0, 0);
-        return d.getTime() - 8 * 3600 * 1000;
-      })(),
-      '7d': now - 7 * 86400000,
-      '30d': now - 30 * 86400000,
-      all: 0,
-    }[range] ?? 0;
+    const rangeRows = rowsForRange(data.rows || [], lastRange);
+    const fullRows = data.rows || [];
+    const hourly = data.hourly || new Array(24).fill(0);
+    const daily = (data.daily || []).slice(-7);
 
-    const filtered = rows.filter(r => r.ts.getTime() >= cutoff);
+    updateAxisChart('rpm', [{ name: 'Laps', data: rangeRows.map(row => ({ x: row.ts.getTime(), y: row.lapsDelta || 0 })) }]);
 
-    updateAxisChart('rpm', [{
-      name: 'Laps',
-      data: filtered.map(r => ({ x: r.ts.getTime(), y: r.lapsDelta ?? 0 })),
-    }]);
-
-    const hourlyMax = hourly.length ? Math.max(...hourly) : 0;
-    charts.hourly.updateOptions({
-      yaxis: { min: 0, max: Math.max(2, Math.ceil(hourlyMax * 1.1)) },
-    }, false, false, false);
-    charts.hourly.updateSeries([{ name: 'Laps', data: hourly }]);
+    const hourlyMax = Math.max(2, Math.ceil(Math.max(0, ...hourly) * 1.1));
+    charts.hourly?.updateOptions({ yaxis: { min: 0, max: hourlyMax } }, false, false, false);
+    charts.hourly?.updateSeries([{ name: 'Laps', data: hourly }]);
 
     updateAxisChart('luxRpm', [
-      { name: 'RPM', data: filtered.map(r => ({ x: r.ts.getTime(), y: parseFloat(r.rpm.toFixed(2)) })) },
-      { name: 'Lux', data: filtered.map(r => ({ x: r.ts.getTime(), y: r.lux })) },
+      { name: 'RPM', data: fullRows.map(row => ({ x: row.ts.getTime(), y: Number((row.rpm || 0).toFixed(2)) })) },
+      { name: 'Lux', data: fullRows.filter(row => row.lux != null).map(row => ({ x: row.ts.getTime(), y: row.lux })) },
     ]);
 
     updateAxisChart('env', [
-      { name: 'Temp (°C)', data: filtered.map(r => ({ x: r.ts.getTime(), y: r.temperature })) },
-      { name: 'Humidity (%)', data: filtered.map(r => ({ x: r.ts.getTime(), y: r.humidity })) },
+      { name: 'Temp (°C)', data: fullRows.filter(row => row.temperature != null).map(row => ({ x: row.ts.getTime(), y: row.temperature })) },
+      { name: 'Humidity (%)', data: fullRows.filter(row => row.humidity != null).map(row => ({ x: row.ts.getTime(), y: row.humidity })) },
     ]);
 
-    updateAxisChart('daily', [{
-      name: 'Laps',
-      data: daily.map(d => d.laps),
-    }], {
-      xaxis: { categories: daily.map(d => d.date) },
+    updateAxisChart('daily', [{ name: 'Laps', data: daily.map(day => day.laps) }], {
+      xaxis: { categories: daily.map(day => formatDailyLabel(day.date)) },
     });
-  };
+  }
 
+  function formatDailyLabel(date) {
+    if (!date) return '';
+    const parts = date.split('-');
+    return parts.length === 3 ? Number(parts[1]) + '/' + Number(parts[2]) : date;
+  }
+
+  function rebuildCharts() {
+    destroyCharts();
+    initCharts();
+    if (lastData) updateCharts(lastData, lastRange);
+  }
+
+  window.initCharts = initCharts;
+  window.updateCharts = updateCharts;
+  window.rebuildCharts = rebuildCharts;
   window._charts = charts;
 })();
