@@ -9,8 +9,10 @@ The page reads CSV data from a Google Sheet, computes activity metrics in the br
 - [index.html](index.html) - page structure and script load order
 - [css/style.css](css/style.css) - dashboard layout and responsive styling
 - [js/config.js](js/config.js) - sheet ID, wheel geometry, refresh interval, and thresholds
+- [js/theme.js](js/theme.js) - system-aware persisted light/dark theme tokens
 - [js/data.js](js/data.js) - CSV fetch, parsing, daily/hourly aggregation, and activity classification
 - [js/charts.js](js/charts.js) - ApexCharts setup and chart updates
+- [js/heatmap.js](js/heatmap.js) - annual activity heatmap rendering
 - [js/app.js](js/app.js) - dashboard polling and DOM updates
 
 ## Run Locally
@@ -36,7 +38,7 @@ Important settings:
 - `WHEEL_CIRCUMFERENCE_M` - wheel circumference used for distance and speed
 - `UPLOAD_INTERVAL_S` - expected firmware upload cadence
 - `REFRESH_INTERVAL_MS` - browser polling interval
-- `SPEED_THRESHOLDS` - labels for walking, active, running, and sprinting states
+- `SPEED_THRESHOLDS` - speed bands for sleeping, active, and sprinting states
 
 ## Expected Sheet Columns
 
