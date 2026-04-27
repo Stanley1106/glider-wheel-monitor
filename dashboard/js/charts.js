@@ -73,7 +73,11 @@
   }
 
   function hasSeriesData(series) {
-    return series.some(item => Array.isArray(item.data) && item.data.length > 0);
+    return series.some(item => Array.isArray(item.data) && item.data.some(point => {
+      if (point == null) return false;
+      if (typeof point === 'object' && 'y' in point) return point.y != null;
+      return true;
+    }));
   }
 
   function mergeChartOptions(target, patch) {
@@ -229,8 +233,8 @@
     ]);
 
     updateAxisChart('env', [
-      { name: 'Temp (°C)', data: fullRows.filter(row => row.temperature != null).map(row => ({ x: row.ts.getTime(), y: row.temperature })) },
-      { name: 'Humidity (%)', data: fullRows.filter(row => row.humidity != null).map(row => ({ x: row.ts.getTime(), y: row.humidity })) },
+      { name: 'Temp (°C)', data: fullRows.map(row => ({ x: row.ts.getTime(), y: row.temperature ?? null })) },
+      { name: 'Humidity (%)', data: fullRows.map(row => ({ x: row.ts.getTime(), y: row.humidity ?? null })) },
     ]);
 
     updateAxisChart('daily', [{ name: 'Laps', data: daily.map(day => day.laps) }], {
