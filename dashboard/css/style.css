@@ -154,6 +154,7 @@ body.is-active .speed-val { animation: speed-tick 2.8s ease-in-out infinite; col
 
 .chart-full { margin-bottom: 10px; }
 .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.chart-grid .chart-box { margin-bottom: 0; }
 .chart-box {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -165,7 +166,6 @@ body.is-active .speed-val { animation: speed-tick 2.8s ease-in-out infinite; col
 .chart-header { align-items: baseline; display: flex; justify-content: space-between; margin-bottom: 8px; gap: 12px; }
 .chart-title { color: var(--fg1); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 .chart-range { color: var(--fg2); font-size: 10px; letter-spacing: .04em; }
-.chart-hero { border-bottom: none; border-radius: var(--radius-lg) var(--radius-lg) 0 0; margin-bottom: 0; }
 
 .error-banner {
   background: color-mix(in srgb, var(--rose) 8%, var(--surface));
@@ -179,33 +179,6 @@ body.is-active .speed-val { animation: speed-tick 2.8s ease-in-out infinite; col
 }
 .error-banner.visible { display: block; }
 
-.secondary-panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  border-top: none;
-  margin-bottom: 10px;
-  transition: background .45s, border-color .3s;
-}
-.tab-bar { border-bottom: 1px solid var(--border); display: flex; gap: 0; padding: 0 14px; }
-.tab-btn {
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--fg2);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 10px;
-  letter-spacing: .07em;
-  margin-bottom: -1px;
-  padding: 10px 14px 8px;
-  text-transform: uppercase;
-  transition: color .15s, border-color .15s;
-}
-.tab-btn:hover { color: var(--fg1); }
-.tab-btn.active { border-bottom-color: var(--teal); color: var(--teal); }
-.tab-pane { padding: 14px; }
-.tab-pane.chart-grid { display: grid; }
 
 .year-switcher { display: flex; gap: 3px; }
 .year-btn {
@@ -287,6 +260,4 @@ body.is-active .speed-val { animation: speed-tick 2.8s ease-in-out infinite; col
 
 @media (max-width: 640px) {
   .header { align-items: flex-start; flex-direction: column; }
-  .tab-bar { overflow-x: auto; padding: 0 8px; }
-  .tab-btn { padding-left: 10px; padding-right: 10px; }
 }

@@ -25,13 +25,6 @@
     };
   }
 
-  function hourlyLabel(value) {
-    const hour = Number(value);
-    if (!Number.isFinite(hour)) return '';
-    if (window.innerWidth <= 640 && hour % 4 !== 0) return '';
-    return hour + 'h';
-  }
-
   function todayStartMs() {
     const now = Date.now();
     const day = new Date(now + 8 * 3600 * 1000);
@@ -162,19 +155,6 @@
       tooltip: { theme: Theme.current(), x: { format: 'HH:mm' } },
     });
 
-    renderChart('hourly', 'chart-hourly', {
-      ...commonOptions(165),
-      chart: { ...commonOptions(165).chart, type: 'bar' },
-      series: [{ name: 'Laps', data: new Array(24).fill(0) }],
-      xaxis: {
-        categories: Array.from({ length: 24 }, (_, i) => i),
-        labels: { formatter: hourlyLabel, hideOverlappingLabels: true },
-      },
-      yaxis: { min: 0, max: 2 },
-      colors: [t.teal],
-      plotOptions: { bar: { columnWidth: '68%', borderRadius: 2 } },
-    });
-
     renderChart('luxRpm', 'chart-lux-rpm', {
       ...commonOptions(165),
       chart: { ...commonOptions(165).chart, type: 'line' },
@@ -205,16 +185,6 @@
       legend: { labels: { colors: t.fg2 } },
     });
 
-    renderChart('daily', 'chart-daily', {
-      ...commonOptions(165),
-      chart: { ...commonOptions(165).chart, type: 'bar' },
-      series: [{ name: 'Laps', data: [] }],
-      xaxis: { categories: [] },
-      yaxis: { min: 0 },
-      colors: [t.gold],
-      plotOptions: { bar: { columnWidth: '55%', borderRadius: 2 } },
-    });
-
     if (!themeListenerRegistered) {
       Theme.onChange(window.rebuildCharts);
       themeListenerRegistered = true;
@@ -227,14 +197,8 @@
     lastRange = range || lastRange;
 
     const rangeRows = rowsForRange(data, lastRange);
-    const hourly = data.hourly || new Array(24).fill(0);
-    const daily = data.daily || [];
 
     updateAxisChart('rpm', [{ name: 'Laps', data: rangeRows.map(row => ({ x: row.ts.getTime(), y: row.lapsDelta || 0 })) }]);
-
-    const hourlyMax = Math.max(2, Math.ceil(Math.max(0, ...hourly) * 1.1));
-    charts.hourly?.updateOptions({ yaxis: { min: 0, max: hourlyMax } }, false, false, false);
-    charts.hourly?.updateSeries([{ name: 'Laps', data: hourly }]);
 
     updateAxisChart('luxRpm', [
       { name: 'RPM', data: rangeRows.map(row => ({ x: row.ts.getTime(), y: Number((row.rpm || 0).toFixed(2)) })) },
@@ -246,15 +210,6 @@
       { name: 'Humidity (%)', data: rangeRows.map(row => ({ x: row.ts.getTime(), y: row.humidity ?? null })) },
     ]);
 
-    updateAxisChart('daily', [{ name: 'Laps', data: daily.map(day => day.laps) }], {
-      xaxis: { categories: daily.map(day => formatDailyLabel(day.date)) },
-    });
-  }
-
-  function formatDailyLabel(date) {
-    if (!date) return '';
-    const parts = date.split('-');
-    return parts.length === 3 ? Number(parts[1]) + '/' + Number(parts[2]) : date;
   }
 
   function rebuildCharts() {

@@ -67,38 +67,9 @@
         currentRange = button.dataset.range;
         document.querySelectorAll('[data-range]').forEach(item => item.classList.remove('active'));
         button.classList.add('active');
+        const rangeLabel = document.querySelector('.chart-range');
+        if (rangeLabel) rangeLabel.textContent = currentRange;
         if (lastData) updateCharts(lastData, currentRange);
-      });
-    });
-  }
-
-  function resizeVisibleCharts() {
-    setTimeout(() => {
-      Object.values(window._charts || {}).forEach(chart => {
-        try {
-          chart.updateOptions({}, true, false);
-        } catch (err) {
-        }
-      });
-    }, 50);
-  }
-
-  function wireTabs() {
-    document.querySelectorAll('[data-tab]').forEach(button => {
-      button.addEventListener('click', () => {
-        document.querySelectorAll('[data-tab]').forEach(item => item.classList.remove('active'));
-        document.querySelectorAll('.tab-pane').forEach(pane => {
-          pane.classList.remove('active');
-          pane.style.display = 'none';
-        });
-
-        button.classList.add('active');
-        const pane = document.getElementById('tab-' + button.dataset.tab);
-        if (pane) {
-          pane.classList.add('active');
-          pane.style.display = pane.classList.contains('chart-grid') ? 'grid' : 'block';
-        }
-        resizeVisibleCharts();
       });
     });
   }
@@ -116,7 +87,6 @@
     initCharts();
     Heatmap.init({ byDate: {}, years: [], maxLaps: 1 });
     wireRangeButtons();
-    wireTabs();
     wireThemeToggle();
     poll();
     setInterval(poll, CONFIG.REFRESH_INTERVAL_MS);

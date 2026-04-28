@@ -67,7 +67,7 @@
     </div>
   </div>
 
-  <div class="chart-full chart-box chart-hero">
+  <div class="chart-full chart-box">
     <div class="chart-header">
       <span class="chart-title">Laps over time</span>
       <span class="chart-range">today</span>
@@ -76,34 +76,15 @@
   </div>
   <div id="hmap-tooltip"></div>
 
-  <div class="secondary-panel">
-    <div class="tab-bar">
-      <button class="tab-btn active" data-tab="activity">Activity</button>
-      <button class="tab-btn" data-tab="environment">Environment</button>
+  <div class="chart-grid">
+    <div class="chart-box">
+      <div class="chart-header"><span class="chart-title">Temperature &amp; Humidity</span></div>
+      <div id="chart-env"></div>
     </div>
-
-    <div class="tab-pane active chart-grid" id="tab-activity">
-      <div class="chart-box">
-        <div class="chart-header"><span class="chart-title">Hourly activity</span></div>
-        <div id="chart-hourly"></div>
-      </div>
-      <div class="chart-box">
-        <div class="chart-header"><span class="chart-title">Daily totals</span></div>
-        <div id="chart-daily"></div>
-      </div>
+    <div class="chart-box">
+      <div class="chart-header"><span class="chart-title">Light vs RPM</span></div>
+      <div id="chart-lux-rpm"></div>
     </div>
-
-    <div class="tab-pane chart-grid" id="tab-environment" style="display:none">
-      <div class="chart-box">
-        <div class="chart-header"><span class="chart-title">Temperature &amp; Humidity</span></div>
-        <div id="chart-env"></div>
-      </div>
-      <div class="chart-box">
-        <div class="chart-header"><span class="chart-title">Light vs RPM</span></div>
-        <div id="chart-lux-rpm"></div>
-      </div>
-    </div>
-
   </div>
 
   <div class="chart-box annual-panel">
