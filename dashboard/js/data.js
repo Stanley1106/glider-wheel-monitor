@@ -10,11 +10,15 @@
     };
   }
 
+  function unquote(s) {
+    return s.trim().replace(/^"|"$/g, '');
+  }
+
   function parseCsv(text) {
     const lines = text.trim().split(/\r?\n/);
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split(',');
+    const headers = lines[0].split(',').map(unquote);
     const inferredIndex = buildColumnIndex(headers);
     const index = {
       ts: inferredIndex.ts !== -1 ? inferredIndex.ts : 0,
@@ -26,7 +30,7 @@
 
     const rows = [];
     for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(',');
+      const cols = lines[i].split(',').map(unquote);
       if (cols.length < 2) continue;
 
       const ts = new Date((cols[index.ts] || '').trim());
@@ -48,6 +52,18 @@
 
     rows.sort((a, b) => a.ts - b.ts);
     return rows;
+  }
+
+  function sheetUrl(sheetId, sheetName) {
+    return 'https://docs.google.com/spreadsheets/d/' + sheetId +
+      '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(sheetName) +
+      '&t=' + Date.now();
+  }
+
+  async function fetchSheet(sheetId, sheetName) {
+    const res = await fetch(sheetUrl(sheetId, sheetName));
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' (' + sheetName + ')');
+    return res.text();
   }
 
   function todayDateStr() {
@@ -165,24 +181,36 @@
   }
 
   async function fetchData() {
-    const url = 'https://docs.google.com/spreadsheets/d/' +
-      CONFIG.SHEET_ID +
-      '/export?format=csv&t=' +
-      Date.now();
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const id = CONFIG.SHEET_ID;
 
-    const text = await res.text();
-    const rows = parseCsv(text);
-    computeRates(rows);
-    smoothSeries(rows, CONFIG.SMOOTHING_WINDOW);
+    const [liveResult, hrResult, summaryResult] = await Promise.allSettled([
+      fetchSheet(id, 'live'),
+      fetchSheet(id, 'hr_summary'),
+      fetchSheet(id, 'daily_summary'),
+    ]);
 
-    const stats = computeStats(rows);
-    const hourly = buildHourly(rows);
-    const daily = buildDaily(rows);
-    const annual = buildAnnualHeatmap(rows);
+    if (liveResult.status === 'rejected') throw liveResult.reason;
 
-    return { rows, stats, hourly, daily, annual };
+    const liveRows = parseCsv(liveResult.value);
+    const hrRows = hrResult.status === 'fulfilled' ? parseCsv(hrResult.value) : [];
+    const summaryRows = summaryResult.status === 'fulfilled' ? parseCsv(summaryResult.value) : [];
+
+    computeRates(liveRows);
+    smoothSeries(liveRows, CONFIG.SMOOTHING_WINDOW);
+    computeRates(hrRows);
+    computeRates(summaryRows);
+
+    const stats = computeStats(liveRows);
+    const hourly = buildHourly(liveRows);
+
+    // daily bar chart: prefer daily_summary, fall back to hr_summary, then live
+    const dailySrc = summaryRows.length > 0 ? summaryRows : hrRows.length > 0 ? hrRows : liveRows;
+    const daily = buildDaily(dailySrc).slice(-7);
+
+    // heatmap: same priority
+    const annual = buildAnnualHeatmap(summaryRows.length > 0 ? summaryRows : hrRows.length > 0 ? hrRows : liveRows);
+
+    return { liveRows, hrRows, summaryRows, stats, hourly, daily, annual };
   }
 
   window.fetchData = fetchData;

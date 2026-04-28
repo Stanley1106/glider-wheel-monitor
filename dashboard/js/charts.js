@@ -43,14 +43,25 @@
     return window.todayDateStr ? window.todayDateStr() : new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
   }
 
-  function rowsForRange(rows, range) {
-    if (!rows) return [];
+  function rowsForRange(data, range) {
     const now = Date.now();
+    const live = data.liveRows || [];
+    const hr = data.hrRows || [];
+    const summary = data.summaryRows || [];
 
-    if (range === 'today') return rows.filter(row => window.rowDateStr ? window.rowDateStr(row.ts) === todayStr() : row.ts.getTime() >= todayStartMs());
-    if (range === '7d') return rows.filter(row => row.ts.getTime() >= now - 7 * 86400000);
-    if (range === '30d') return rows.filter(row => row.ts.getTime() >= now - 30 * 86400000);
-    return rows;
+    if (range === 'today') {
+      return live.filter(row => window.rowDateStr(row.ts) === todayStr());
+    }
+    if (range === '7d') {
+      const src = hr.length > 0 ? hr : live;
+      return src.filter(row => row.ts.getTime() >= now - 7 * 86400000);
+    }
+    if (range === '30d') {
+      const src = hr.length > 0 ? hr : live;
+      return src.filter(row => row.ts.getTime() >= now - 30 * 86400000);
+    }
+    // all
+    return summary.length > 0 ? summary : hr.length > 0 ? hr : live;
   }
 
   function destroyCharts() {
@@ -215,10 +226,9 @@
     lastData = data;
     lastRange = range || lastRange;
 
-    const rangeRows = rowsForRange(data.rows || [], lastRange);
-    const fullRows = data.rows || [];
+    const rangeRows = rowsForRange(data, lastRange);
     const hourly = data.hourly || new Array(24).fill(0);
-    const daily = (data.daily || []).slice(-7);
+    const daily = data.daily || [];
 
     updateAxisChart('rpm', [{ name: 'Laps', data: rangeRows.map(row => ({ x: row.ts.getTime(), y: row.lapsDelta || 0 })) }]);
 
@@ -227,13 +237,13 @@
     charts.hourly?.updateSeries([{ name: 'Laps', data: hourly }]);
 
     updateAxisChart('luxRpm', [
-      { name: 'RPM', data: fullRows.map(row => ({ x: row.ts.getTime(), y: Number((row.rpm || 0).toFixed(2)) })) },
-      { name: 'Lux', data: fullRows.filter(row => row.lux != null).map(row => ({ x: row.ts.getTime(), y: row.lux })) },
+      { name: 'RPM', data: rangeRows.map(row => ({ x: row.ts.getTime(), y: Number((row.rpm || 0).toFixed(2)) })) },
+      { name: 'Lux', data: rangeRows.filter(row => row.lux != null).map(row => ({ x: row.ts.getTime(), y: row.lux })) },
     ]);
 
     updateAxisChart('env', [
-      { name: 'Temp (°C)', data: fullRows.map(row => ({ x: row.ts.getTime(), y: row.temperature ?? null })) },
-      { name: 'Humidity (%)', data: fullRows.map(row => ({ x: row.ts.getTime(), y: row.humidity ?? null })) },
+      { name: 'Temp (°C)', data: rangeRows.map(row => ({ x: row.ts.getTime(), y: row.temperature ?? null })) },
+      { name: 'Humidity (%)', data: rangeRows.map(row => ({ x: row.ts.getTime(), y: row.humidity ?? null })) },
     ]);
 
     updateAxisChart('daily', [{ name: 'Laps', data: daily.map(day => day.laps) }], {
