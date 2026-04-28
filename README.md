@@ -41,6 +41,8 @@ The firmware is a PlatformIO project for ESP32-C3 using the Arduino framework. L
 
 The dashboard reads all three sheets in parallel and routes each time range to the appropriate sheet: `today` uses raw live rows, `7d`/`30d` use hourly aggregates, `all` uses daily aggregates.
 
+All three sheets are created automatically on the first upload — no manual setup required.
+
 ### Enclosure
 
 See [enclosure/README.md](enclosure/README.md).
