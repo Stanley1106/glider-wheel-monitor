@@ -47,7 +47,6 @@
     if (!rows) return [];
     const now = Date.now();
 
-    if (range === '1h') return rows.filter(row => row.ts.getTime() >= now - 3600000);
     if (range === 'today') return rows.filter(row => window.rowDateStr ? window.rowDateStr(row.ts) === todayStr() : row.ts.getTime() >= todayStartMs());
     if (range === '7d') return rows.filter(row => row.ts.getTime() >= now - 7 * 86400000);
     if (range === '30d') return rows.filter(row => row.ts.getTime() >= now - 30 * 86400000);
