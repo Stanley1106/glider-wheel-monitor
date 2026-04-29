@@ -3,6 +3,7 @@
   let lastData = null;
   let lastRange = 'today';
   let themeListenerRegistered = false;
+  let activeBounds = undefined; // { min, max } — enforced by zoom event hooks
 
   function tokens() {
     return Theme.getTokens();
@@ -17,6 +18,13 @@
         foreColor: t.fg2,
         toolbar: { show: false },
         animations: { enabled: true, easing: 'easeinout', speed: 400 },
+        events: {
+          beforeZoom: (_ctx, { xaxis }) => {
+            if (!activeBounds) return { xaxis };
+            return { xaxis: { min: Math.max(xaxis.min, activeBounds.min), max: Math.min(xaxis.max, activeBounds.max) } };
+          },
+          beforeResetZoom: () => activeBounds ? { xaxis: activeBounds } : undefined,
+        },
       },
       dataLabels: { enabled: false },
       grid: { borderColor: t.border, strokeDashArray: 4 },
@@ -191,24 +199,35 @@
     }
   }
 
+  function rangeBounds(range) {
+    const now = Date.now();
+    if (range === 'today') return { min: todayStartMs(), max: now };
+    if (range === '7d')  return { min: now - 7 * 86400000, max: now };
+    if (range === '30d') return { min: now - 30 * 86400000, max: now };
+    return undefined;
+  }
+
   function updateCharts(data, range) {
     if (!data) return;
     lastData = data;
     lastRange = range || lastRange;
 
     const rangeRows = rowsForRange(data, lastRange);
+    const bounds = rangeBounds(lastRange);
+    activeBounds = bounds;
+    const xaxisOpts = bounds ? { xaxis: { type: 'datetime', labels: { datetimeUTC: false }, min: bounds.min, max: bounds.max } } : undefined;
 
-    updateAxisChart('rpm', [{ name: 'Laps', data: rangeRows.map(row => ({ x: row.ts.getTime(), y: row.lapsDelta || 0 })) }]);
+    updateAxisChart('rpm', [{ name: 'Laps', data: rangeRows.map(row => ({ x: row.ts.getTime(), y: row.lapsDelta || 0 })) }], xaxisOpts);
 
     updateAxisChart('luxRpm', [
       { name: 'RPM', data: rangeRows.map(row => ({ x: row.ts.getTime(), y: Number((row.rpm || 0).toFixed(2)) })) },
       { name: 'Lux', data: rangeRows.filter(row => row.lux != null).map(row => ({ x: row.ts.getTime(), y: row.lux })) },
-    ]);
+    ], xaxisOpts);
 
     updateAxisChart('env', [
       { name: 'Temp (°C)', data: rangeRows.map(row => ({ x: row.ts.getTime(), y: row.temperature ?? null })) },
       { name: 'Humidity (%)', data: rangeRows.map(row => ({ x: row.ts.getTime(), y: row.humidity ?? null })) },
-    ]);
+    ], xaxisOpts);
 
   }
 
